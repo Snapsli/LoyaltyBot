@@ -100,7 +100,7 @@ app.post('/api/upload/image', requireAuth, upload.single('image'), (req, res) =>
 
 // Telegram Authentication Endpoint
 app.post('/api/auth/telegram', async (req, res) => {
-  const { telegram_id, username, first_name, last_name } = req.body;
+  const { telegram_id, username, first_name, last_name, phone_number } = req.body;
 
   if (!telegram_id) {
     return res.status(400).json({ error: 'Telegram ID is required' });
@@ -115,6 +115,9 @@ app.post('/api/auth/telegram', async (req, res) => {
       user.username = username;
       user.firstName = first_name;
       user.lastName = last_name;
+      if (phone_number) {
+        user.phone = phone_number;
+      }
       // Keep the existing session token or generate a new one if it doesn't exist
       sessionToken = user.sessionToken || crypto.randomBytes(32).toString('hex');
       user.sessionToken = sessionToken; 
@@ -138,6 +141,7 @@ app.post('/api/auth/telegram', async (req, res) => {
         username: username,
         firstName: first_name,
         lastName: last_name,
+        phone: phone_number,
         sessionToken: sessionToken,
         role: assignedRole
       });
@@ -162,7 +166,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   // req.user is populated by the requireAuth middleware
   
   // Include role and balance in the response
-  const { telegramId, username, firstName, lastName, role, balance } = req.user;
+  const { telegramId, username, firstName, lastName, phone, role, balance } = req.user;
   
   // Return only necessary, non-sensitive user details
   res.status(200).json({
@@ -170,6 +174,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
     username: username,
     first_name: firstName,
     last_name: lastName,
+    phone: phone,
     role: role,
     balance: balance
   });

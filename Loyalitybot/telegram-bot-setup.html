@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка Telegram бота - Запрос номера телефона</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        h1 {
+            color: #0088cc;
+            text-align: center;
+        }
+        h2 {
+            color: #0088cc;
+            border-bottom: 2px solid #0088cc;
+            padding-bottom: 10px;
+        }
+        .step {
+            background: white;
+            border-left: 4px solid #0088cc;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .step-number {
+            background: #0088cc;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .button {
+            background: #0088cc;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 Настройка Telegram бота</h1>
+    <p style="text-align: center; color: #666;">Инструкция по настройке запроса номера телефона для Loyalty Bot</p>
+
+    <div class="container">
+        <h2>📱 Настройка WebApp с запросом номера телефона</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Откройте чат с @BotFather</strong>
+            <p>Перейдите в Telegram и найдите бота <code>@BotFather</code></p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Настройте WebApp URL</strong>
+            <p>Отправьте команду:</p>
+            <div class="code-block">/newapp</div>
+            <p>Выберите вашего бота <code>@Loyalty_bar_bot</code></p>
+            <p>Введите название приложения: <code>Loyalty Program</code></p>
+            <p>Введите описание: <code>Программа лояльности</code></p>
+            <p>Загрузите фото (или пропустите)</p>
+            <p>Введите URL вашего приложения:</p>
+            <div class="code-block">http://localhost:3001</div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Настройте Menu Button</strong>
+            <p>Отправьте команду:</p>
+            <div class="code-block">/mybots</div>
+            <p>Выберите <code>@Loyalty_bar_bot</code></p>
+            <p>Выберите <code>Bot Settings</code></p>
+            <p>Выберите <code>Menu Button</code></p>
+            <p>Выберите <code>Configure Menu Button</code></p>
+            <p>Выберите <code>✅ Use @BotFather commands menu</code></p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Запросите разрешения на контакт</strong>
+            <p>Для получения номера телефона бот должен запросить контакт пользователя.</p>
+            <p>Это делается через специальную кнопку в чате с ботом.</p>
+            <p>Пример кода бота (для справки):</p>
+            <div class="code-block">
+const { Telegraf, Markup } = require('telegraf');
+
+const bot = new Telegraf('YOUR_BOT_TOKEN');
+
+bot.start((ctx) => {
+    ctx.reply(
+        'Добро пожаловать в программу лояльности! 🎯\n\n' +
+        'Для продолжения нужно предоставить номер телефона.',
+        Markup.keyboard([
+            Markup.button.contactRequest('📱 Поделиться номером телефона')
+        ]).resize()
+    );
+});
+
+bot.on('contact', (ctx) => {
+    const contact = ctx.message.contact;
+    console.log('Получен номер телефона:', contact.phone_number);
+    
+    ctx.reply(
+        'Спасибо! Теперь вы можете использовать приложение.',
+        Markup.keyboard([
+            Markup.button.webApp('🚀 Открыть приложение', 'http://localhost:3001')
+        ]).resize()
+    );
+});
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Важно:</strong> 
+            <p>Для работы с номерами телефонов в production используйте HTTPS URL вместо localhost.</p>
+            <p>Telegram WebApp требует HTTPS для работы с реальными пользователями.</p>
+        </div>
+
+        <div class="success">
+            <strong>✅ Готово!</strong>
+            <p>После настройки пользователи смогут:</p>
+            <ul>
+                <li>Отправить боту команду /start</li>
+                <li>Поделиться номером телефона через кнопку</li>
+                <li>Открыть WebApp приложение</li>
+                <li>Видеть свой номер телефона в профиле</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Техническая информация</h2>
+        
+        <p><strong>Ваш бот:</strong> @Loyalty_bar_bot</p>
+        <p><strong>Токен:</strong> 8150333875:AAHIO6lnuNCsWnjoQ1-ecPj2SByApUBdgNo</p>
+        <p><strong>WebApp URL:</strong> http://localhost:3001</p>
+        
+        <div class="warning">
+            <strong>🔒 Безопасность:</strong>
+            <p>Никогда не публикуйте токен бота в открытом доступе!</p>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 50px; color: #666;">
+        <p>Сделано для Loyalty Bot 🎯</p>
+    </div>
+</body>
+</html> 

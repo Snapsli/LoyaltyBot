@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
+import BarLoyalty from './components/BarLoyalty';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -12,7 +13,8 @@ const mockAuth = {
     first_name: "John",
     last_name: "Doe",
     username: "johndoe",
-    role: "user"
+    role: "user",
+    loyaltyPoints: 500 // Добавляем тестовые бонусы
   },
   token: "mock_session_token_12345"
 };
@@ -194,16 +196,16 @@ function App() {
     <Router>
       <div className="app-container">
         <header className="app-header">
-          <h1>🎯 Loyalty Program</h1>
+          <h1>🍹 Loyalty Bars</h1>
           <div className="user-info">
-            <span>Hello, {user.first_name}!</span>
-            <button onClick={logout} className="logout-button">Logout</button>
+            <span>Привет, {user.first_name}!</span>
+            <button onClick={logout} className="logout-button">Выйти</button>
           </div>
         </header>
 
         <main className="app-main">
           <Routes>
-            <Route path="/" element={<Dashboard user={user} onRefreshPoints={refreshPoints} />} />
+            <Route path="/" element={<BarLoyalty user={user} />} />
             <Route path="/profile" element={<Profile user={user} />} />
             {user.role === 'admin' && (
               <Route path="/admin" element={<AdminPanel />} />
@@ -215,16 +217,16 @@ function App() {
         <nav className="app-nav">
           <a href="/" className="nav-item">
             <span>🏠</span>
-            <span>Home</span>
+            <span>Главная</span>
           </a>
           <a href="/profile" className="nav-item">
             <span>👤</span>
-            <span>Profile</span>
+            <span>Профиль</span>
           </a>
           {user.role === 'admin' && (
             <a href="/admin" className="nav-item">
               <span>⚙️</span>
-              <span>Admin</span>
+              <span>Админ</span>
             </a>
           )}
         </nav>
@@ -329,6 +331,10 @@ function Profile({ user }) {
         <div className="profile-field">
           <label>Username:</label>
           <span>@{user.username}</span>
+        </div>
+        <div className="profile-field">
+          <label>Phone:</label>
+          <span>{user.phone || 'Not provided'}</span>
         </div>
         <div className="profile-field">
           <label>Role:</label>

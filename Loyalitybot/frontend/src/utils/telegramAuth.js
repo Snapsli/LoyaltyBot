@@ -8,7 +8,8 @@ const mockTelegramData = {
     id: 12345,
     username: "devuser",
     first_name: "Dev",
-    last_name: "User"
+    last_name: "User",
+    phone_number: "+7 900 123-45-67"
 };
 
 // Session storage keys
@@ -68,7 +69,8 @@ export class TelegramAuth {
                     telegram_id: userData.id,
                     username: userData.username,
                     first_name: userData.first_name,
-                    last_name: userData.last_name
+                    last_name: userData.last_name,
+                    phone_number: userData.phone_number
                 })
             });
 
