@@ -1,0 +1,92 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - "--providers.docker=true"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+      - "--accesslog.fields.defaultmode=keep"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=gevernus@mail.ru"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    restart: unless-stopped
+    networks:
+      - web
+
+  mongo:
+    image: mongo:latest
+    container_name: loyalty-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: GevPass12
+    volumes:
+      - mongodb_data:/data/db # Persistent storage for MongoDB data
+    restart: unless-stopped
+    networks:
+      - web
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: loyalty-frontend
+    ports:
+      - "3000:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`wellnesshealthy.ru`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.priority=5"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    environment:
+      - REACT_APP_API_URL=https://wellnesshealthy.ru/api
+      - REACT_APP_ADMIN_URL=https://wellnesshealthy.ru/admin
+      - REACT_APP_TELEGRAM_BOT_NAME=orrders_food_bot
+      - NODE_ENV=production
+    volumes:
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - web
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scud-backend
+    ports:
+      - "8000:8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`wellnesshealthy.ru`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-db?authSource=admin
+    volumes:
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    restart: unless-stopped
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+volumes:
+  mongodb_data:
