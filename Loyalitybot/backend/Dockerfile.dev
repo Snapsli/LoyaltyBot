@@ -1,4 +1,4 @@
-# Dockerfile для продакшена backend
+# Dockerfile для разработки backend
 FROM node:23
 
 # Install CA certificates to ensure SSL/TLS verification
@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --production
+RUN npm install
 
 # Copy the rest of your application
 COPY . .
@@ -19,5 +19,5 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Run in production mode
-CMD ["node", "index.js"] 
+# Run in development mode with nodemon
+CMD ["npm", "run", "dev"] 

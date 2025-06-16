@@ -2,15 +2,51 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require("cors");
-const crypto = require('crypto'); // Import crypto for token generation
+const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const User = require('./models/User');
-
 
 const app = express();
 app.use(cors({
     exposedHeaders: ['Content-Range']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// --- Upload folder setup ---
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir);
+}
+
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// --- Multer configuration for file storage ---
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        const extension = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + extension);
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only images are allowed!'), false);
+        }
+    },
+    limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
+});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
@@ -40,14 +76,27 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid authentication (custom headers)' });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account is blocked by administrator.' });
+    }
+
     req.user = user; // Attach user to the request
     next(); // Proceed to the next middleware or route handler
   } catch (error) {
     console.error('Authentication error:', error);
-    // Use a generic error message for security
     res.status(401).json({ error: 'Request is not authorized' });
   }
 };
+
+// Image upload endpoint
+app.post('/api/upload/image', requireAuth, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  const imageUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/${req.file.filename}`;
+  res.status(200).json({ url: imageUrl });
+});
 
 // Telegram Authentication Endpoint
 app.post('/api/auth/telegram', async (req, res) => {
@@ -76,15 +125,23 @@ app.post('/api/auth/telegram', async (req, res) => {
 
       // Create new user
       sessionToken = crypto.randomBytes(32).toString('hex');
+      
+      // Role assignment: admin if first user, otherwise user
+      let assignedRole = 'user';
+
+      if (userCount === 0) {
+        assignedRole = 'admin';
+      }
+
       user = new User({
         telegramId: telegram_id,
         username: username,
         firstName: first_name,
         lastName: last_name,
         sessionToken: sessionToken,
-        // Assign 'admin' role if first user, otherwise default ('user') applies
-          role: userCount === 0 ? 'admin' : 'user' 
+        role: assignedRole
       });
+
       await user.save();
       console.log(`New user created. User count: ${userCount + 1}. Role assigned: ${user.role}`);
     }
@@ -103,8 +160,9 @@ app.post('/api/auth/telegram', async (req, res) => {
 // Get Current User Endpoint (Protected by requireAuth middleware)
 app.get('/api/auth/me', requireAuth, (req, res) => {
   // req.user is populated by the requireAuth middleware
-  // Include role in the response
-  const { telegramId, username, firstName, lastName, role } = req.user;
+  
+  // Include role and balance in the response
+  const { telegramId, username, firstName, lastName, role, balance } = req.user;
   
   // Return only necessary, non-sensitive user details
   res.status(200).json({
@@ -112,72 +170,95 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
     username: username,
     first_name: firstName,
     last_name: lastName,
-    role: role // Add role to the response
+    role: role,
+    balance: balance
   });
   console.log(`Session verified via /api/auth/me for user: ${telegramId}`);
 });
 
-// Get All Users Endpoint (Protected by requireAuth middleware)
+// Get All Users Endpoint (Admin only)
 app.get('/api/users', requireAuth, async (req, res) => {
   try {
-    // Fetch all users from the database
-    // Include role in the selection
-    const users = await User.find({}).select('telegramId username firstName lastName createdAt role'); 
-    
-    // Set Content-Range header for react-admin compatibility (optional but good practice)
-    // res.setHeader('Content-Range', `users 0-${users.length-1}/${users.length}`);
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
 
-    // Map users to include the 'id' virtual if your frontend expects it
-    const usersWithId = users.map(user => user.toJSON()); 
-
-    res.status(200).json(usersWithId);
+    const users = await User.find({}).select('-sessionToken');
+    res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Update User Role Endpoint (Protected by requireAuth, Admin Only)
-app.patch('/api/users/:userId/role', requireAuth, async (req, res) => {
-  // 1. Check if the requesting user is an admin
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden: Only admins can change roles.' });
-  }
-
-  // 2. Get target user ID from params and new role from body
-  const { userId } = req.params;
-  const { role } = req.body;
-
-  // 3. Validate the new role
-  if (!['admin', 'user'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role specified. Must be "admin" or "user".' });
-  }
-
-  // Prevent admin from accidentally removing their own admin role?
-  // Optional: Add a check if (req.user.id === userId && role === 'user') { ... }
-
+// Update user balance (Admin only)
+app.put('/api/users/:userId/balance', requireAuth, async (req, res) => {
   try {
-    // 4. Find the target user by ID
-    const targetUser = await User.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({ error: 'Target user not found.' });
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // 5. Update the role and save
-    targetUser.role = role;
-    await targetUser.save();
+    const { userId } = req.params;
+    const { balance } = req.body;
 
-    // 6. Return success response (optionally return the updated user)
-    res.status(200).json({ message: 'User role updated successfully.', user: targetUser.toJSON() });
+    if (typeof balance !== 'number') {
+      return res.status(400).json({ error: 'Balance must be a number' });
+    }
 
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { balance }, 
+      { new: true }
+    ).select('-sessionToken');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(user);
   } catch (error) {
-    console.error('Error updating user role:', error);
-    // Handle potential validation errors during save or other DB issues
-    if (error.name === 'ValidationError') {
-        return res.status(400).json({ error: error.message });
-    }
-    res.status(500).json({ error: 'Internal server error while updating role.' });
+    console.error('Error updating user balance:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.listen(8000, () => console.log('Backend running on port 8000'));
+// Block/Unblock user (Admin only)
+app.put('/api/users/:userId/block', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.params;
+    const { isBlocked } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { isBlocked }, 
+      { new: true }
+    ).select('-sessionToken');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error updating user block status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'loyalty-backend'
+  });
+});
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+    console.log(`Loyalty backend server is running on port ${PORT}`);
+}); 

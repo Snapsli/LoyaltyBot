@@ -5,18 +5,26 @@ const userSchema = new mongoose.Schema({
     firstName: { type: String },
     lastName: { type: String },
     middleName: { type: String },
-    username: { type: String, required: true, unique: true},
+    username: { type: String, required: true, unique: true },
     phone: { type: String },
     email: { type: String },
     role: { 
       type: String, 
-      enum: ['admin', 'user', 'owner', 'customer'],
+      enum: ['admin', 'user'],
       default: 'user'
     },
     sessionToken: { type: String },
+
+    // Loyalty program fields
+    balance: { type: Number, default: 0 },
+    lastBalanceReset: { type: Date },
+    
+    // User management
+    isBlocked: { type: Boolean, default: false },
+    
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-})
+});
 
 // Update `updatedAt' only if something has changed
 userSchema.pre("save", function (next) {
@@ -41,4 +49,4 @@ userSchema.set("toJSON", {
     virtuals: true,
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', userSchema); 

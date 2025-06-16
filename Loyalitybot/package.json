@@ -1,0 +1,22 @@
+{
+  "name": "loyalty-program",
+  "version": "1.0.0",
+  "description": "Loyalty program with Telegram authentication",
+  "main": "index.js",
+  "scripts": {
+    "dev": "docker-compose up --build",
+    "dev:down": "docker-compose down",
+    "prod": "docker-compose -f docker-compose.prod.yml up --build -d",
+    "prod:down": "docker-compose -f docker-compose.prod.yml down"
+  },
+  "keywords": [
+    "loyalty",
+    "telegram",
+    "authentication",
+    "docker",
+    "react",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "ISC"
+} 

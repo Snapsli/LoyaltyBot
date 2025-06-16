@@ -1,53 +1,70 @@
 services:
   mongo:
     image: mongo:latest
-    container_name: loyalty-mongo
+    container_name: loyalty-mongo-dev
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: GevPass12
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - web
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: loyalty-frontend
     ports:
-      - "3001:3000"    
-    environment:
-      - REACT_APP_API_URL=http://localhost:8001/api
-      - REACT_APP_TELEGRAM_BOT_NAME=orrders_food_bot
-      - NODE_ENV=development
-      - REACT_APP_USE_MOCK_AUTH=true
+      - "27018:27017"
     volumes:
-      - ./frontend:/app
-      - node_modules_volume:/app/node_modules
+      - mongodb_dev_data:/data/db
     networks:
-      - web
-    depends_on:
-      - backend
+      - loyalty-dev
     restart: unless-stopped
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: loyalty-backend
+      dockerfile: Dockerfile.dev
+    container_name: loyalty-backend-dev
     ports:
       - "8001:8000"
+    env_file:
+      - env.dev
     environment:
-      - NODE_ENV=production
-      - MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-db?authSource=admin
+      - NODE_ENV=development
+      - PORT=8000
+      - MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-dev-db?authSource=admin
+      - BACKEND_URL=http://localhost:8001
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+      - /app/node_modules
     networks:
-      - web
+      - loyalty-dev
+    depends_on:
+      - mongo
+    restart: unless-stopped
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: loyalty-frontend-dev
+    ports:
+      - "3001:3000"    
+    env_file:
+      - env.dev
+    environment:
+      - PORT=3000
+      - REACT_APP_API_URL=http://localhost:8001/api
+      - REACT_APP_TELEGRAM_BOT_NAME=Loyalty_bot
+      - REACT_APP_USE_MOCK_AUTH=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - loyalty-dev
+    depends_on:
+      - backend
     restart: unless-stopped
 
 networks:
-  web:
+  loyalty-dev:
+    driver: bridge
+
 volumes:
-  mongodb_data:
+  mongodb_dev_data:
   node_modules_volume:  
