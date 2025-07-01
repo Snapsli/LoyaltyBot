@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import '../styles/BarLoyalty.css';
 import BarDetail from './BarDetail';
 
 const BarLoyalty = ({ user }) => {
   const [selectedBar, setSelectedBar] = useState(null);
+  const { barId } = useParams();
+  const navigate = useNavigate();
 
   // Симулируем различные бонусы пользователя для каждого бара
   const getUserBonusesForBar = (barId) => {
@@ -17,88 +20,72 @@ const BarLoyalty = ({ user }) => {
     return Math.floor(baseBonus * (bonusMultipliers[barId] || 1));
   };
 
-  const bars = [
-    {
-      id: 1,
-      name: 'Культура',
-      image: '/images/bars/kultura.jpg',
-      address: 'ул. Пушкинская, 47',
-      bonuses: getUserBonusesForBar(1)
-    },
-    {
-      id: 2,
-      name: 'Cabalitos',
-      image: '/images/bars/cabalitos.jpg',
-      address: 'ул. Рубинштейна, 25',
-      bonuses: getUserBonusesForBar(2)
-    },
-    {
-      id: 3,
-      name: 'Фонотека',
-      image: '/images/bars/fonoteka.jpg',
-      address: 'Лиговский пр., 74',
-      bonuses: getUserBonusesForBar(3)
-    },
-    {
-      id: 4,
-      name: 'Tchaykovsky',
-      image: '/images/bars/tchaykovsky.jpg',
-      address: 'ул. Чайковского, 15',
-      bonuses: getUserBonusesForBar(4)
-    }
-  ];
+  // Автоматически выбираем бар на основе URL
+  useEffect(() => {
+    if (barId) {
+      const bars = [
+        {
+          id: 1,
+          name: 'Культура',
+          image: '/images/bars/kultura.jpg',
+          address: 'Ульяновск, ул. Пушкинская, 47',
+          bonuses: getUserBonusesForBar(1)
+        },
+        {
+          id: 2,
+          name: 'Cabalitos',
+          image: '/images/bars/cabalitos.jpg',
+          address: 'Ульяновск, ул. Рубинштейна, 25',
+          bonuses: getUserBonusesForBar(2)
+        },
+        {
+          id: 3,
+          name: 'Fonoteca - Listening Bar',
+          image: '/images/bars/fonoteka.jpg',
+          address: 'Ульяновск, Карла Маркса, 20',
+          bonuses: getUserBonusesForBar(3)
+        },
+        {
+          id: 4,
+          name: 'Tchaykovsky',
+          image: '/images/bars/tchaykovsky.jpg',
+          address: 'Ульяновск, ул. Чайковского, 15',
+          bonuses: getUserBonusesForBar(4)
+        }
+      ];
 
-  const handleBarClick = (bar) => {
-    // Добавляем небольшую задержку для лучшего UX на мобильных
-    setTimeout(() => {
-      setSelectedBar(bar);
-    }, 100);
-  };
+      const bar = bars.find(b => b.id === parseInt(barId));
+      if (bar) {
+        setSelectedBar(bar);
+      } else {
+        // Если бар не найден, возвращаем на главную
+        navigate('/');
+      }
+    }
+  }, [barId, navigate, user?.loyaltyPoints]);
 
   const handleBackToMain = () => {
-    setSelectedBar(null);
+    navigate('/');
   };
 
-  if (selectedBar) {
+  // Если нет выбранного бара, перенаправляем на главную
+  if (!selectedBar) {
     return (
-      <BarDetail 
-        bar={selectedBar} 
-        onBack={handleBackToMain}
-      />
+      <div className="bar-loyalty">
+        <div className="bars-header">
+          <h1>Загрузка...</h1>
+        </div>
+      </div>
     );
   }
 
+  // Показываем страницу выбранного бара
   return (
-    <div className="bar-loyalty">
-      <div className="bars-header">
-        <h1>Добро пожаловать в наши бары!</h1>
-      </div>
-      
-      <div className="bars-grid">
-        {bars.map(bar => (
-          <div 
-            key={bar.id} 
-            className="bar-card"
-            onClick={() => handleBarClick(bar)}
-          >
-            <img 
-              src={bar.image} 
-              alt={bar.name}
-              className="bar-card-image"
-              onError={(e) => {
-                e.target.src = '/images/bars/placeholder.svg';
-              }}
-            />
-            <div className="bar-card-overlay">
-              <h3 className="bar-card-name">{bar.name}</h3>
-            </div>
-            <div className="bar-bonus-strip">
-              <span>Ваши бонусы: {bar.bonuses}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <BarDetail 
+      bar={selectedBar} 
+      user={user}
+      onBack={handleBackToMain}
+    />
   );
 };
 
