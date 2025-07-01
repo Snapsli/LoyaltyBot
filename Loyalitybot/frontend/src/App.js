@@ -152,6 +152,17 @@ function App() {
     }
   };
 
+  // Development helper: toggle role between user and admin
+  const toggleRole = () => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    const newRole = user.role === 'admin' ? 'user' : 'admin';
+    const updatedUser = { ...user, role: newRole };
+    
+    setUser(updatedUser);
+    localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
+  };
+
   if (loading) {
     return (
       <div className="app-container loading">
@@ -195,38 +206,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} />} />
+        <Route path="/" element={<MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} onToggleRole={toggleRole} />} />
         <Route path="/bars/:barId" element={<BarLoyalty user={user} />} />
-        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} />} />
+        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
         {user.role === 'admin' && (
-          <Route path="/admin" element={
-            <div className="app-container">
-              <header className="app-header">
-                <h1>🍹 Loyalty Bars</h1>
-                <div className="user-info">
-                  <span>Привет, {user.first_name}!</span>
-                  <button onClick={logout} className="logout-button">Выйти</button>
-                </div>
-              </header>
-              <main className="app-main">
-                <AdminPanel />
-              </main>
-              <nav className="app-nav">
-                <a href="/" className="nav-item">
-                  <span>🏠</span>
-                  <span>Главная</span>
-                </a>
-                <a href="/profile" className="nav-item">
-                  <span>👤</span>
-                  <span>Профиль</span>
-                </a>
-                <a href="/admin" className="nav-item active">
-                  <span>⚙️</span>
-                  <span>Админ</span>
-                </a>
-              </nav>
-            </div>
-          } />
+          <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -235,7 +219,7 @@ function App() {
 }
 
 // Main Page Component (Dashboard)
-function MainPage({ user, onRefreshPoints, onLogout }) {
+function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
   const [stats, setStats] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
@@ -328,6 +312,16 @@ function MainPage({ user, onRefreshPoints, onLogout }) {
           <button onClick={() => navigate('/profile')} className="profile-btn">
             👤 Профиль
           </button>
+          {user.role === 'admin' && (
+            <button onClick={() => navigate('/admin')} className="admin-btn">
+              ⚙️ Админ
+            </button>
+          )}
+          {process.env.NODE_ENV === 'development' && (
+            <button onClick={onToggleRole} className="dev-role-btn">
+              🔄 {user.role === 'admin' ? 'User' : 'Admin'}
+            </button>
+          )}
           <button onClick={onLogout} className="logout-btn">
             Выйти
           </button>
@@ -424,7 +418,7 @@ function MainPage({ user, onRefreshPoints, onLogout }) {
 }
 
 // Profile Page Component (New Design)
-function ProfilePage({ user, onLogout }) {
+function ProfilePage({ user, onLogout, onToggleRole }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
 
@@ -461,6 +455,16 @@ function ProfilePage({ user, onLogout }) {
           <button onClick={() => navigate('/')} className="profile-btn">
             🏠 Главная
           </button>
+          {user.role === 'admin' && (
+            <button onClick={() => navigate('/admin')} className="admin-btn">
+              ⚙️ Админ
+            </button>
+          )}
+          {process.env.NODE_ENV === 'development' && (
+            <button onClick={onToggleRole} className="dev-role-btn">
+              🔄 {user.role === 'admin' ? 'User' : 'Admin'}
+            </button>
+          )}
           <button onClick={onLogout} className="logout-btn">
             Выйти
           </button>
@@ -593,62 +597,134 @@ function ProfilePage({ user, onLogout }) {
   );
 }
 
-// Admin Panel Component
-function AdminPanel() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Admin Page Component (New Design)
+function AdminPage({ user, onLogout, onToggleRole }) {
+  const [expandedSection, setExpandedSection] = useState(null);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
-      const token = localStorage.getItem('loyalty_token');
-      const response = await fetch('/api/admin/users', {
-        headers: {
-          'X-Session-Token': token
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      }
-    } catch (err) {
-      console.error('Error loading users:', err);
-    } finally {
-      setLoading(false);
-    }
+  // Функция для подсчета бонусов в конкретном баре
+  const getUserBonusesForBar = (barId) => {
+    const baseBonus = user?.loyaltyPoints || 500; // Базовые 500 бонусов для тестов
+    const bonusMultipliers = {
+      1: 1.2,   // Культура - 600 бонусов
+      2: 0.8,   // Cabalitos - 400 бонусов  
+      3: 1.5,   // Фонотека - 750 бонусов
+      4: 0.6    // Tchaykovsky - 300 бонусов
+    };
+    return Math.floor(baseBonus * (bonusMultipliers[barId] || 1));
   };
 
-  if (loading) {
-    return <div className="admin-panel loading">Loading users...</div>;
-  }
+  // Подсчет общих бонусов во всех барах
+  const getTotalBonuses = () => {
+    return getUserBonusesForBar(1) + getUserBonusesForBar(2) + getUserBonusesForBar(3) + getUserBonusesForBar(4);
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
 
   return (
-    <div className="admin-panel">
-      <h2>Admin Panel</h2>
-      <div className="users-table">
-        <h3>Users ({users.length})</h3>
-        {users.length === 0 ? (
-          <p>No users found.</p>
-        ) : (
-          <div className="table-container">
-            {users.map(user => (
-              <div key={user._id} className="user-row">
-                <div className="user-info">
-                  <strong>{user.first_name} {user.last_name}</strong>
-                  <span>@{user.username}</span>
-                  <span className={`role-badge ${user.role}`}>{user.role}</span>
-                </div>
-                <div className="user-stats">
-                  <span>{user.loyaltyPoints || 0} pts</span>
-                </div>
-              </div>
-            ))}
+    <div className="main-container">
+      {/* Top Navigation */}
+      <div className="top-navigation">
+        <div className="user-info-top">
+          <span>Привет, {user.first_name}!</span>
+          <span>{getTotalBonuses()} pts</span>
+        </div>
+                 <div className="nav-buttons">
+           <button onClick={() => navigate('/')} className="profile-btn">
+             🏠 Главная
+           </button>
+           <button onClick={() => navigate('/profile')} className="profile-btn">
+             👤 Профиль
+           </button>
+           {process.env.NODE_ENV === 'development' && (
+             <button onClick={onToggleRole} className="dev-role-btn">
+               🔄 {user.role === 'admin' ? 'User' : 'Admin'}
+             </button>
+           )}
+           <button onClick={onLogout} className="logout-btn">
+             Выйти
+           </button>
+         </div>
+      </div>
+
+      <div className="main-container-content">
+        {/* Sidebar */}
+        <div className="loyalty-sidebar admin-sidebar">
+          <div className="sidebar-divider"></div>
+          <div className="loyalty-logo">
+            <div className="logo-circle">
+              <img src="/images/logo.png" alt="Logo" />
+            </div>
           </div>
-        )}
+          <h2 className="sidebar-title">Панель администратора</h2>
+          
+          <div className="accordion-section">
+            <button 
+              className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
+              onClick={() => toggleSection('stats')}
+            >
+              <span>Статистика</span>
+              <span className="accordion-icon">{expandedSection === 'stats' ? '▼' : '▶'}</span>
+            </button>
+            {expandedSection === 'stats' && (
+              <ul className="accordion-content">
+                <li>Общая статистика</li>
+                <li>По барам</li>
+                <li>По пользователям</li>
+              </ul>
+            )}
+          </div>
+
+          <div className="accordion-section">
+            <button 
+              className={`accordion-button ${expandedSection === 'manage' ? 'expanded' : ''}`}
+              onClick={() => toggleSection('manage')}
+            >
+              <span>Управление</span>
+              <span className="accordion-icon">{expandedSection === 'manage' ? '▼' : '▶'}</span>
+            </button>
+            {expandedSection === 'manage' && (
+              <ul className="accordion-content">
+                <li>Пользователи</li>
+                <li>Баллы</li>
+                <li>Настройки</li>
+              </ul>
+            )}
+          </div>
+
+          <div className="points-display admin-total">
+            <span className="points-label">Всего пользователей:</span>
+            <span className="points-value">-</span>
+          </div>
+        </div>
+
+        {/* Main Content - Admin Panel */}
+        <div className="main-content">
+          <h1 className="page-title">Администрирование</h1>
+          
+          <div className="admin-container">
+            <div className="admin-card">
+              <div className="admin-welcome">
+                <h2 className="admin-title">Добро пожаловать в панель администратора!</h2>
+                <p className="admin-description">
+                  Здесь вы сможете управлять пользователями, просматривать статистику, 
+                  настраивать систему лояльности и многое другое.
+                </p>
+              </div>
+              
+              <div className="admin-placeholder">
+                <div className="placeholder-icon">⚙️</div>
+                <h3 className="placeholder-title">Панель в разработке</h3>
+                <p className="placeholder-text">
+                  Функционал администрирования будет добавлен в ближайшее время.
+                  Пока что используйте кнопки навигации для переключения между разделами.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

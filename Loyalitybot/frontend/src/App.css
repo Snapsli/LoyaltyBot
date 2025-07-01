@@ -1784,4 +1784,240 @@ div.main-container {
   .bar-points-value {
     font-size: 16px !important;
   }
+}
+
+/* Admin Page Styles */
+.admin-sidebar {
+  background: #FF6B35 !important; /* Orange background for admin sidebar */
+}
+
+.admin-sidebar .sidebar-title {
+  color: #FFFFFF !important;
+}
+
+.admin-sidebar .accordion-button {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.admin-sidebar .accordion-button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.admin-sidebar .accordion-content {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.admin-sidebar .points-display.admin-total {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 15px !important;
+  margin-top: 20px !important;
+}
+
+.admin-container {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.admin-card {
+  background: white !important;
+  border-radius: 20px !important;
+  padding: 40px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  max-width: 800px !important;
+  width: 100% !important;
+  text-align: center !important;
+}
+
+.admin-welcome {
+  margin-bottom: 40px !important;
+}
+
+.admin-title {
+  font-family: 'Great Vibes', cursive !important;
+  font-size: 36px !important;
+  font-weight: 400 !important;
+  color: #2B2727 !important;
+  margin-bottom: 20px !important;
+}
+
+.admin-description {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 18px !important;
+  color: #4F4E4E !important;
+  line-height: 1.6 !important;
+  margin-bottom: 0 !important;
+}
+
+.admin-placeholder {
+  background: rgba(255, 107, 53, 0.05) !important;
+  border-radius: 20px !important;
+  padding: 60px 40px !important;
+  border: 2px dashed rgba(255, 107, 53, 0.3) !important;
+}
+
+.placeholder-icon {
+  font-size: 80px !important;
+  margin-bottom: 25px !important;
+}
+
+.placeholder-title {
+  font-family: 'Great Vibes', cursive !important;
+  font-size: 32px !important;
+  font-weight: 400 !important;
+  color: #FF6B35 !important;
+  margin-bottom: 20px !important;
+}
+
+.placeholder-text {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 16px !important;
+  color: #4F4E4E !important;
+  line-height: 1.6 !important;
+  max-width: 500px !important;
+  margin: 0 auto !important;
+}
+
+/* Admin Button Styles */
+.admin-btn {
+  background: #FF6B35 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  padding: 12px 20px !important;
+  border-radius: 25px !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3) !important;
+}
+
+.admin-btn:hover {
+  background: #E55A2B !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4) !important;
+}
+
+/* Responsive Design for Admin */
+@media (max-width: 768px) {
+  .admin-card {
+    padding: 30px 20px !important;
+    margin: 0 15px !important;
+  }
+  
+  .admin-title {
+    font-size: 28px !important;
+  }
+  
+  .admin-description {
+    font-size: 16px !important;
+  }
+  
+  .admin-placeholder {
+    padding: 40px 20px !important;
+  }
+  
+  .placeholder-icon {
+    font-size: 60px !important;
+  }
+  
+  .placeholder-title {
+    font-size: 24px !important;
+  }
+  
+  .placeholder-text {
+    font-size: 14px !important;
+  }
+  
+  .admin-btn {
+    padding: 10px 16px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-card {
+    padding: 25px 15px !important;
+  }
+  
+  .admin-title {
+    font-size: 24px !important;
+  }
+  
+  .admin-description {
+    font-size: 14px !important;
+  }
+  
+  .admin-placeholder {
+    padding: 30px 15px !important;
+  }
+  
+  .placeholder-icon {
+    font-size: 50px !important;
+  }
+  
+  .placeholder-title {
+    font-size: 20px !important;
+  }
+  
+  .placeholder-text {
+    font-size: 13px !important;
+  }
+}
+
+/* Development Role Toggle Button */
+.dev-role-btn {
+  background: #9C27B0 !important; /* Purple for development feature */
+  color: #FFFFFF !important;
+  border: none !important;
+  padding: 12px 20px !important;
+  border-radius: 25px !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3) !important;
+  border: 2px dashed rgba(255, 255, 255, 0.3) !important;
+}
+
+.dev-role-btn:hover {
+  background: #7B1FA2 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(156, 39, 176, 0.4) !important;
+  border: 2px dashed rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Hide dev button in production (extra safety) */
+@media (min-width: 1px) {
+  .dev-role-btn {
+    position: relative !important;
+  }
+  
+  .dev-role-btn::before {
+    content: "DEV" !important;
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
+    background: #FF5722 !important;
+    color: white !important;
+    font-size: 8px !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+    font-weight: bold !important;
+  }
+}
+
+/* Responsive adjustments for dev button */
+@media (max-width: 768px) {
+  .dev-role-btn {
+    padding: 10px 16px !important;
+    font-size: 12px !important;
+  }
+  
+  .dev-role-btn::before {
+    font-size: 7px !important;
+    padding: 1px 3px !important;
+  }
 } 
