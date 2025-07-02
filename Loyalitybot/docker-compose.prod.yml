@@ -34,6 +34,7 @@ services:
     depends_on:
       - mongo
     restart: unless-stopped
+    command: sh -c "npm run init-bars && npm start"
 
   frontend:
     build:

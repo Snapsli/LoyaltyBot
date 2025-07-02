@@ -1,15 +1,17 @@
 # 🎯 Loyalty Program with Telegram Authentication
 
-Система лояльности с авторизацией через Telegram WebApp, скопированная из проекта food-order.
+Система лояльности с авторизацией через Telegram WebApp. Баллы и меню добавляются администратором вручную за реальные покупки.
 
 ## 📋 Содержимое проекта
 
-Этот проект содержит только компоненты, связанные с:
-- ✅ **Telegram Bot интеграцией**
-- ✅ **Системой авторизации**
-- ✅ **Docker конфигурациями** (development и production)
+Этот проект содержит:
+- ✅ **Telegram Bot интеграцию**
+- ✅ **Систему авторизации**
+- ✅ **Ручное управление балансом** (только администратор)
+- ✅ **Базовую структуру баров**
+- ✅ **Docker конфигурации** (development и production)
 
-**НЕ включает:** контексты, страницы и сложную бизнес-логику из оригинального проекта.
+**Особенности:** Баллы начисляются только администратором вручную. Меню и возможности трат будут добавляться по мере необходимости.
 
 ## 🏗️ Архитектура
 
@@ -38,14 +40,34 @@
 
 1. **Перейдите в папку проекта:**
    ```bash
-   cd loyality
+   cd Loyalitybot
    ```
 
-2. **Запустите проект:**
+2. **Запустите с Docker Compose:**
    ```bash
-   npm run dev
-   # или
-   npm start
+   docker-compose up -d
+   ```
+
+3. **Приложение будет доступно:**
+   - Frontend: http://localhost:3001
+   - Backend API: http://localhost:8001/api
+   - MongoDB: localhost:27018
+
+4. **Остановка:**
+   ```bash
+   docker-compose down
+   ```
+
+### 🌐 Продакшн развертывание
+
+1. **Настройте продакшн переменные в `env.prod`:**
+   - Смените пароли MongoDB
+   - Укажите правильный домен
+   - Настройте Telegram bot
+
+2. **Деплой на сервер:**
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
    ```
 
 3. **Приложение будет доступно:**
@@ -53,51 +75,44 @@
    - Backend API: http://localhost:8000/api
    - MongoDB: localhost:27017
 
-### 🌐 Продакшн развертывание
-
-1. **Настройте продакшн переменные:**
+4. **Остановка продакшена:**
    ```bash
-   # Отредактируйте env.production:
-   # - Укажите ваш домен
-   # - Смените пароли MongoDB
-   # - Укажите email для SSL
-   # - Настройте Telegram bot
-   ```
-
-2. **Деплой на сервер:**
-   ```bash
-   npm run prod
+   docker-compose -f docker-compose.prod.yml down
    ```
 
 ### 📊 Управление проектом
 
 ```bash
 # Разработка
-npm run dev          # Запуск в режиме разработки (Windows)
-npm run dev:unix     # Запуск в режиме разработки (Linux/Mac)
-npm run stop         # Остановка dev контейнеров
-npm run logs         # Просмотр логов dev
-npm run status       # Статус dev контейнеров
+docker-compose up -d                    # Запуск dev окружения
+docker-compose down                     # Остановка dev окружения
+docker-compose logs                     # Просмотр логов
+docker-compose logs -f backend          # Логи только backend с отслеживанием
+docker-compose ps                       # Статус контейнеров
 
 # Продакшн
-npm run prod         # Деплой в продакшн (Windows)
-npm run prod:unix    # Деплой в продакшн (Linux/Mac)
-npm run stop:prod    # Остановка prod контейнеров
-npm run logs:prod    # Просмотр логов prod
-npm run status:prod  # Статус prod контейнеров
+docker-compose -f docker-compose.prod.yml up -d     # Запуск продакшена
+docker-compose -f docker-compose.prod.yml down      # Остановка продакшена
+docker-compose -f docker-compose.prod.yml logs      # Логи продакшена
+docker-compose -f docker-compose.prod.yml ps        # Статус продакшен контейнеров
 
-# Настройка
-npm run setup        # Создать env.development (Windows)
-npm run setup:prod   # Создать env.production (Windows)
-npm run setup:unix   # Создать env.development (Linux/Mac)
-npm run setup:prod:unix # Создать env.production (Linux/Mac)
+# Перезапуск отдельных сервисов
+docker-compose restart backend         # Перезапуск только backend
+docker-compose restart frontend        # Перезапуск только frontend
+
+# Очистка
+docker-compose down -v                  # Остановка с удалением volumes
+docker system prune                     # Очистка неиспользуемых Docker объектов
 ```
 
-### 🖥️ Кроссплатформенность
+### 🖥️ Инициализация данных
 
-Проект поддерживает Windows и Unix системы:
-- **Windows**: используйте команды без суффикса (npm run dev, npm run prod)
-- **Linux/Mac**: используйте команды с суффиксом :unix (npm run dev:unix, npm run prod:unix)
+Данные баров автоматически инициализируются при запуске backend контейнера. Для ручной инициализации:
+
+```bash
+# Подключиться к backend контейнеру
+docker-compose exec backend npm run init-bars
+```
 
 ## 🔐 Система авторизации
 
@@ -128,6 +143,13 @@ npm run setup:prod:unix # Создать env.production (Linux/Mac)
 - `PUT /api/users/:userId/balance` - обновление баланса
 - `PUT /api/users/:userId/block` - блокировка/разблокировка
 
+### Управление барами
+- `GET /api/bars` - получение всех баров с меню
+- `GET /api/bars/:barId` - получение конкретного бара с меню
+- `PUT /api/bars/:barId` - обновление описания бара (Admin)
+- `POST /api/bars/:barId/menu` - добавление пункта меню (Admin)
+- `DELETE /api/menu/:itemId` - удаление пункта меню (Admin)
+
 ### Утилиты
 - `POST /api/upload/image` - загрузка изображений
 - `GET /api/health` - проверка состояния сервиса
@@ -145,6 +167,28 @@ npm run setup:prod:unix # Создать env.production (Linux/Mac)
   balance: Number (default: 0),
   isBlocked: Boolean (default: false),
   sessionToken: String
+}
+```
+
+### Bar Model
+```javascript
+{
+  barId: Number (unique),
+  name: String,
+  address: String,
+  image: String,
+  description: String
+}
+```
+
+### MenuItem Model
+```javascript
+{
+  barId: Number,
+  name: String,
+  price: Number,
+  image: String,
+  isActive: Boolean (default: true)
 }
 ```
 
@@ -174,24 +218,26 @@ npm run setup:prod:unix # Создать env.production (Linux/Mac)
 
 ### 💡 Примеры настройки
 
-#### Локальная разработка (env.development)
+#### Локальная разработка (env.dev)
 ```bash
 NODE_ENV=development
-MONGO_URI=mongodb://admin:GevPass12@localhost:27017/loyalty-dev-db?authSource=admin
-REACT_APP_API_URL=http://localhost:8000/api
+PORT=8000
+MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-dev-db?authSource=admin
+BACKEND_URL=http://localhost:8001
+REACT_APP_API_URL=http://localhost:8001/api
+REACT_APP_TELEGRAM_BOT_NAME=Loyalty_bot
 REACT_APP_USE_MOCK_AUTH=true
 ```
 
-#### Продакшн (env.production)
+#### Продакшн (env.prod)
 ```bash
 NODE_ENV=production
-DOMAIN=yourdomain.com
-BACKEND_URL=https://yourdomain.com
-MONGO_URI=mongodb://admin:STRONG_PASSWORD@mongo:27017/loyalty-prod-db?authSource=admin
-REACT_APP_API_URL=https://yourdomain.com/api
-REACT_APP_TELEGRAM_BOT_NAME=YourProductionBot
+PORT=8000
+MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-prod-db?authSource=admin
+BACKEND_URL=http://localhost:8000
+REACT_APP_API_URL=http://localhost:8000/api
+REACT_APP_TELEGRAM_BOT_NAME=Loyalty_bot
 REACT_APP_USE_MOCK_AUTH=false
-ACME_EMAIL=admin@yourdomain.com
 ```
 
 ## 📱 Telegram Bot Setup

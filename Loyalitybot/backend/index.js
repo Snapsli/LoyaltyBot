@@ -7,6 +7,8 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const User = require('./models/User');
+const Bar = require('./models/Bar');
+const MenuItem = require('./models/MenuItem');
 
 const app = express();
 app.use(cors({
@@ -250,6 +252,192 @@ app.put('/api/users/:userId/block', requireAuth, async (req, res) => {
     res.status(200).json(user);
   } catch (error) {
     console.error('Error updating user block status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Bars API
+// Get all bars with descriptions and menu
+app.get('/api/bars', async (req, res) => {
+  try {
+    const bars = await Bar.find({});
+    const menuItems = await MenuItem.find({ isActive: true });
+    
+    // Группируем меню по барам
+    const barsWithMenu = bars.map(bar => ({
+      ...bar.toObject(),
+      menu: menuItems.filter(item => item.barId === bar.barId)
+    }));
+    
+    res.status(200).json(barsWithMenu);
+  } catch (error) {
+    console.error('Error fetching bars:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get specific bar with menu
+app.get('/api/bars/:barId', async (req, res) => {
+  try {
+    const { barId } = req.params;
+    const bar = await Bar.findOne({ barId: parseInt(barId) });
+    const menuItems = await MenuItem.find({ barId: parseInt(barId), isActive: true });
+    
+    if (!bar) {
+      return res.status(404).json({ error: 'Bar not found' });
+    }
+    
+    res.status(200).json({
+      ...bar.toObject(),
+      menu: menuItems
+    });
+  } catch (error) {
+    console.error('Error fetching bar:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update bar description (Admin only)
+app.put('/api/bars/:barId', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { barId } = req.params;
+    const { description } = req.body;
+
+    let bar = await Bar.findOne({ barId: parseInt(barId) });
+    
+    if (!bar) {
+      // Создаем новый бар если не существует
+      const defaultBars = {
+        1: { name: "Культура", address: "Ульяновск, Ленина, 15", image: "/images/bars/kultura.jpg" },
+        2: { name: "Caballitos Mexican Bar", address: "Ульяновск, Дворцовая, 8", image: "/images/bars/cabalitos.jpg" },
+        3: { name: "Fonoteca - Listening Bar", address: "Ульяновск, Карла Маркса, 20", image: "/images/bars/fonoteka.jpg" },
+        4: { name: "Tchaikovsky", address: "Ульяновск, Советская, 25", image: "/images/bars/tchaykovsky.jpg" }
+      };
+      
+      const defaultBar = defaultBars[parseInt(barId)];
+      if (!defaultBar) {
+        return res.status(404).json({ error: 'Bar not found' });
+      }
+      
+      bar = new Bar({
+        barId: parseInt(barId),
+        ...defaultBar,
+        description
+      });
+    } else {
+      bar.description = description;
+    }
+
+    await bar.save();
+    res.status(200).json(bar);
+  } catch (error) {
+    console.error('Error updating bar:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update bar image (Admin only)
+app.put('/api/bars/:barId/image', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { barId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image file is required' });
+    }
+
+    const imageUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/${req.file.filename}`;
+
+    let bar = await Bar.findOne({ barId: parseInt(barId) });
+    
+    if (!bar) {
+      // Создаем новый бар если не существует
+      const defaultBars = {
+        1: { name: "Культура", address: "Ульяновск, Ленина, 15", image: "/images/bars/kultura.jpg" },
+        2: { name: "Caballitos Mexican Bar", address: "Ульяновск, Дворцовая, 8", image: "/images/bars/cabalitos.jpg" },
+        3: { name: "Fonoteca - Listening Bar", address: "Ульяновск, Карла Маркса, 20", image: "/images/bars/fonoteka.jpg" },
+        4: { name: "Tchaikovsky", address: "Ульяновск, Советская, 25", image: "/images/bars/tchaykovsky.jpg" }
+      };
+      
+      const defaultBar = defaultBars[parseInt(barId)];
+      if (!defaultBar) {
+        return res.status(404).json({ error: 'Bar not found' });
+      }
+      
+      bar = new Bar({
+        barId: parseInt(barId),
+        ...defaultBar,
+        image: imageUrl
+      });
+    } else {
+      bar.image = imageUrl;
+    }
+
+    await bar.save();
+    res.status(200).json({ image: imageUrl });
+  } catch (error) {
+    console.error('Error updating bar image:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add menu item (Admin only)
+app.post('/api/bars/:barId/menu', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { barId } = req.params;
+    const { name, price } = req.body;
+
+    if (!name || !price) {
+      return res.status(400).json({ error: 'Name and price are required' });
+    }
+
+    const menuItem = new MenuItem({
+      barId: parseInt(barId),
+      name,
+      price: parseFloat(price),
+      image: req.file ? `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/${req.file.filename}` : '/images/drinks/placeholder-drink.jpg'
+    });
+
+    await menuItem.save();
+    res.status(201).json(menuItem);
+  } catch (error) {
+    console.error('Error adding menu item:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete menu item (Admin only)
+app.delete('/api/menu/:itemId', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { itemId } = req.params;
+    const menuItem = await MenuItem.findByIdAndUpdate(
+      itemId,
+      { isActive: false },
+      { new: true }
+    );
+
+    if (!menuItem) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    res.status(200).json({ message: 'Menu item deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting menu item:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

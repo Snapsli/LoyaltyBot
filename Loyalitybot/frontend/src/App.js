@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.css';
 import BarLoyalty from './components/BarLoyalty';
+import AdminBarDetail from './components/AdminBarDetail';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -13,8 +14,7 @@ const mockAuth = {
     first_name: "John",
     last_name: "Doe",
     username: "johndoe",
-    role: "user",
-    loyaltyPoints: 500 // Добавляем тестовые бонусы
+    role: "user"
   },
   token: "mock_session_token_12345"
 };
@@ -83,7 +83,7 @@ function App() {
 
   const authenticateWithTelegram = async () => {
     try {
-      const response = await fetch('/api/auth/telegram', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/telegram`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,12 +112,46 @@ function App() {
   };
 
   const authenticateWithMock = async () => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setUser(mockAuth.user);
-    localStorage.setItem('loyalty_user', JSON.stringify(mockAuth.user));
-    localStorage.setItem('loyalty_token', mockAuth.token);
+    try {
+      // Call real API with mock data to create user in database
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/telegram`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          telegram_id: mockAuth.user.id,
+          username: mockAuth.user.username,
+          first_name: mockAuth.user.first_name,
+          last_name: mockAuth.user.last_name,
+          phone_number: "+7 900 123-45-67"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Mock authentication failed');
+      }
+
+      const data = await response.json();
+      
+      // Create user object with proper structure
+      const user = {
+        id: data.telegram_id,
+        first_name: mockAuth.user.first_name,
+        last_name: mockAuth.user.last_name,
+        username: mockAuth.user.username,
+        role: "admin", // First user becomes admin
+        balance: 0
+      };
+      
+      setUser(user);
+      localStorage.setItem('loyalty_user', JSON.stringify(user));
+      localStorage.setItem('loyalty_token', data.session_token);
+      
+    } catch (err) {
+      console.error('Mock auth error:', err);
+      throw err;
+    }
   };
 
   const logout = () => {
@@ -133,9 +167,9 @@ function App() {
   const refreshPoints = async () => {
     try {
       const token = localStorage.getItem('loyalty_token');
-      if (!token) return;
+      if (!token || !user) return;
 
-      const response = await fetch('/api/user/profile', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/me`, {
         headers: {
           'X-Telegram-ID': user.id.toString(),
           'X-Session-Token': token
@@ -144,8 +178,8 @@ function App() {
 
       if (response.ok) {
         const userData = await response.json();
-        setUser(prev => ({ ...prev, loyaltyPoints: userData.loyaltyPoints }));
-        localStorage.setItem('loyalty_user', JSON.stringify({ ...user, loyaltyPoints: userData.loyaltyPoints }));
+        setUser(prev => ({ ...prev, balance: userData.balance }));
+        localStorage.setItem('loyalty_user', JSON.stringify({ ...user, balance: userData.balance }));
       }
     } catch (err) {
       console.error('Error refreshing points:', err);
@@ -210,7 +244,10 @@ function App() {
         <Route path="/bars/:barId" element={<BarLoyalty user={user} />} />
         <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
         {user.role === 'admin' && (
-          <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+          <>
+            <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+            <Route path="/admin/bar/:barId" element={<AdminBarDetail user={user} />} />
+          </>
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -223,33 +260,39 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
   const [stats, setStats] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
+  const [barsData, setBarsData] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     loadStats();
+    loadBarsData();
   }, []);
 
-  // Функция для подсчета бонусов в конкретном баре
-  const getUserBonusesForBar = (barId) => {
-    const baseBonus = user?.loyaltyPoints || 500; // Базовые 500 бонусов для тестов
-    const bonusMultipliers = {
-      1: 1.2,   // Культура - 600 бонусов
-      2: 0.8,   // Cabalitos - 400 бонусов  
-      3: 1.5,   // Фонотека - 750 бонусов
-      4: 0.6    // Tchaykovsky - 300 бонусов
-    };
-    return Math.floor(baseBonus * (bonusMultipliers[barId] || 1));
+  const loadBarsData = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars`);
+      if (response.ok) {
+        const barsArray = await response.json();
+        const barsMap = {};
+        barsArray.forEach(bar => {
+          barsMap[bar.barId] = bar;
+        });
+        setBarsData(barsMap);
+      }
+    } catch (error) {
+      console.error('Error loading bars data:', error);
+    }
   };
 
-  // Подсчет общих бонусов во всех барах
+  // Получаем баланс пользователя из базы данных
   const getTotalBonuses = () => {
-    return getUserBonusesForBar(1) + getUserBonusesForBar(2) + getUserBonusesForBar(3) + getUserBonusesForBar(4);
+    return user?.balance || 0;
   };
 
   const loadStats = async () => {
     try {
       const token = localStorage.getItem('loyalty_token');
-      const response = await fetch('/api/user/stats', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/user/stats`, {
         headers: {
           'X-Telegram-ID': user.id.toString(),
           'X-Session-Token': token
@@ -273,30 +316,31 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
+  // Создаем массив баров с обновленными данными из БД
   const bars = [
     {
       id: 1,
       name: "Культура",
       address: "Ульяновск, Ленина, 15",
-      image: "/images/bars/kultura.jpg"
+      image: barsData[1]?.image || "/images/bars/kultura.jpg"
     },
     {
       id: 2,
-      name: "Caballitos Mexican Bar",
+      name: "Caballitos Mexican Bar", 
       address: "Ульяновск, Дворцовая, 8",
-      image: "/images/bars/cabalitos.jpg"
+      image: barsData[2]?.image || "/images/bars/cabalitos.jpg"
     },
     {
       id: 3,
       name: "Fonoteca - Listening Bar",
-      address: "Ульяновск, Карла Маркса, 20",
-      image: "/images/bars/fonoteka.jpg"
+      address: "Ульяновск, Карла Маркса, 20", 
+      image: barsData[3]?.image || "/images/bars/fonoteka.jpg"
     },
     {
       id: 4,
       name: "Tchaikovsky",
       address: "Ульяновск, Советская, 25",
-      image: "/images/bars/tchaykovsky.jpg"
+      image: barsData[4]?.image || "/images/bars/tchaykovsky.jpg"
     }
   ];
 
@@ -339,44 +383,40 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
           </div>
           <h2 className="sidebar-title">Программа лояльности</h2>
           
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'earn' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('earn')}
-            >
-              <span>Как получить баллы?</span>
-              <span className="accordion-icon">{expandedSection === 'earn' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'earn' && (
-              <ul className="accordion-content">
-                <li>Делайте заказы в наших барах</li>
-                <li>Участвуйте в акциях</li>
-                <li>Приводите друзей</li>
-              </ul>
-            )}
-          </div>
-
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'spend' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('spend')}
-            >
-              <span>Как потратить баллы?</span>
-              <span className="accordion-icon">{expandedSection === 'spend' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'spend' && (
-              <ul className="accordion-content">
-                <li>Скидки на напитки</li>
-                <li>Бесплатные закуски</li>
-                <li>Специальные предложения</li>
-              </ul>
-            )}
-          </div>
-
           <div className="points-display">
-            <span className="points-label">Ваши баллы:</span>
+            <span className="points-label">Все баллы по заведениям:</span>
             <span className="points-value">{getTotalBonuses()}</span>
             <button onClick={onRefreshPoints} className="refresh-points-btn">↻</button>
+          </div>
+
+          <div className="accordion-section faq-section">
+            <button 
+              className={`accordion-button faq-button ${expandedSection === 'faq' ? 'expanded' : ''}`}
+              onClick={() => toggleSection('faq')}
+            >
+              <span>❓ FAQ</span>
+              <span className="accordion-icon">{expandedSection === 'faq' ? '▼' : '▶'}</span>
+            </button>
+            {expandedSection === 'faq' && (
+              <div className="accordion-content faq-content">
+                <div className="faq-item">
+                  <h4>Как получить баллы?</h4>
+                  <ul>
+                    <li>Делайте заказы в наших барах</li>
+                    <li>Участвуйте в акциях</li>
+                    <li>Приводите друзей</li>
+                  </ul>
+                </div>
+                <div className="faq-item">
+                  <h4>Как потратить баллы?</h4>
+                  <ul>
+                    <li>Скидки на напитки</li>
+                    <li>Бесплатные закуски</li>
+                    <li>Специальные предложения</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -398,8 +438,8 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
                 {hoveredBar === bar.id && (
                   <div className="bar-description-overlay">
                     <div className="bar-description-content">
-                      <h4>Описание бара</h4>
-                      <p>Здесь будет детальное описание атмосферы, особенностей меню и уникальных предложений этого заведения. Пока что это заглушка.</p>
+                      <h4>{bar.name}</h4>
+                      <p>{barsData[bar.id]?.description || 'Описание будет добавлено администратором.'}</p>
                     </div>
                   </div>
                 )}
@@ -422,21 +462,9 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
 
-  // Функция для подсчета бонусов в конкретном баре
-  const getUserBonusesForBar = (barId) => {
-    const baseBonus = user?.loyaltyPoints || 500; // Базовые 500 бонусов для тестов
-    const bonusMultipliers = {
-      1: 1.2,   // Культура - 600 бонусов
-      2: 0.8,   // Cabalitos - 400 бонусов  
-      3: 1.5,   // Фонотека - 750 бонусов
-      4: 0.6    // Tchaykovsky - 300 бонусов
-    };
-    return Math.floor(baseBonus * (bonusMultipliers[barId] || 1));
-  };
-
-  // Подсчет общих бонусов во всех барах
+  // Получаем баланс пользователя из базы данных
   const getTotalBonuses = () => {
-    return getUserBonusesForBar(1) + getUserBonusesForBar(2) + getUserBonusesForBar(3) + getUserBonusesForBar(4);
+    return user?.balance || 0;
   };
 
   const toggleSection = (section) => {
@@ -482,43 +510,39 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
           </div>
           <h2 className="sidebar-title">Программа лояльности</h2>
           
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'earn' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('earn')}
-            >
-              <span>Как получить баллы?</span>
-              <span className="accordion-icon">{expandedSection === 'earn' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'earn' && (
-              <ul className="accordion-content">
-                <li>Делайте заказы в наших барах</li>
-                <li>Участвуйте в акциях</li>
-                <li>Приводите друзей</li>
-              </ul>
-            )}
-          </div>
-
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'spend' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('spend')}
-            >
-              <span>Как потратить баллы?</span>
-              <span className="accordion-icon">{expandedSection === 'spend' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'spend' && (
-              <ul className="accordion-content">
-                <li>Скидки на напитки</li>
-                <li>Бесплатные закуски</li>
-                <li>Специальные предложения</li>
-              </ul>
-            )}
-          </div>
-
           <div className="points-display">
-            <span className="points-label">Ваши баллы:</span>
+            <span className="points-label">Все баллы по заведениям:</span>
             <span className="points-value">{getTotalBonuses()}</span>
+          </div>
+
+          <div className="accordion-section faq-section">
+            <button 
+              className={`accordion-button faq-button ${expandedSection === 'faq' ? 'expanded' : ''}`}
+              onClick={() => toggleSection('faq')}
+            >
+              <span>❓ FAQ</span>
+              <span className="accordion-icon">{expandedSection === 'faq' ? '▼' : '▶'}</span>
+            </button>
+            {expandedSection === 'faq' && (
+              <div className="accordion-content faq-content">
+                <div className="faq-item">
+                  <h4>Как получить баллы?</h4>
+                  <ul>
+                    <li>Делайте заказы в наших барах</li>
+                    <li>Участвуйте в акциях</li>
+                    <li>Приводите друзей</li>
+                  </ul>
+                </div>
+                <div className="faq-item">
+                  <h4>Как потратить баллы?</h4>
+                  <ul>
+                    <li>Скидки на напитки</li>
+                    <li>Бесплатные закуски</li>
+                    <li>Специальные предложения</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -569,23 +593,19 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
               </div>
               
               <div className="profile-bars-breakdown">
-                <h3 className="breakdown-title">Баллы по барам:</h3>
+                <h3 className="breakdown-title">Доступные бары:</h3>
                 <div className="bars-breakdown">
                   <div className="bar-points">
-                    <span className="bar-name">Культура:</span>
-                    <span className="bar-points-value">{getUserBonusesForBar(1)}</span>
+                    <span className="bar-name">Культура</span>
                   </div>
                   <div className="bar-points">
-                    <span className="bar-name">Cabalitos:</span>
-                    <span className="bar-points-value">{getUserBonusesForBar(2)}</span>
+                    <span className="bar-name">Cabalitos</span>
                   </div>
                   <div className="bar-points">
-                    <span className="bar-name">Фонотека:</span>
-                    <span className="bar-points-value">{getUserBonusesForBar(3)}</span>
+                    <span className="bar-name">Фонотека</span>
                   </div>
                   <div className="bar-points">
-                    <span className="bar-name">Tchaykovsky:</span>
-                    <span className="bar-points-value">{getUserBonusesForBar(4)}</span>
+                    <span className="bar-name">Tchaykovsky</span>
                   </div>
                 </div>
               </div>
@@ -600,27 +620,72 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
 // Admin Page Component (New Design)
 function AdminPage({ user, onLogout, onToggleRole }) {
   const [expandedSection, setExpandedSection] = useState(null);
+  const [barsData, setBarsData] = useState({});
   const navigate = useNavigate();
 
-  // Функция для подсчета бонусов в конкретном баре
-  const getUserBonusesForBar = (barId) => {
-    const baseBonus = user?.loyaltyPoints || 500; // Базовые 500 бонусов для тестов
-    const bonusMultipliers = {
-      1: 1.2,   // Культура - 600 бонусов
-      2: 0.8,   // Cabalitos - 400 бонусов  
-      3: 1.5,   // Фонотека - 750 бонусов
-      4: 0.6    // Tchaykovsky - 300 бонусов
-    };
-    return Math.floor(baseBonus * (bonusMultipliers[barId] || 1));
+  const loadBarsData = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars`);
+      if (response.ok) {
+        const barsArray = await response.json();
+        const barsMap = {};
+        barsArray.forEach(bar => {
+          barsMap[bar.barId] = bar;
+        });
+        setBarsData(barsMap);
+      }
+    } catch (error) {
+      console.error('Error loading bars data:', error);
+    }
   };
 
-  // Подсчет общих бонусов во всех барах
+  React.useEffect(() => {
+    loadBarsData();
+  }, []);
+
+  // Получаем баланс пользователя из базы данных
   const getTotalBonuses = () => {
-    return getUserBonusesForBar(1) + getUserBonusesForBar(2) + getUserBonusesForBar(3) + getUserBonusesForBar(4);
+    return user?.balance || 0;
   };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  // Создаем массив баров с обновленными данными из БД
+  const bars = [
+    {
+      id: 1,
+      name: "Культура",
+      address: "Ульяновск, Ленина, 15",
+      image: barsData[1]?.image || "/images/bars/kultura.jpg",
+      description: "Уютное место с атмосферой искусства и культуры"
+    },
+    {
+      id: 2,
+      name: "Caballitos Mexican Bar",
+      address: "Ульяновск, Дворцовая, 8", 
+      image: barsData[2]?.image || "/images/bars/cabalitos.jpg",
+      description: "Мексиканский бар с аутентичными коктейлями"
+    },
+    {
+      id: 3,
+      name: "Fonoteca - Listening Bar",
+      address: "Ульяновск, Карла Маркса, 20",
+      image: barsData[3]?.image || "/images/bars/fonoteka.jpg",
+      description: "Музыкальный бар для истинных меломанов"
+    },
+    {
+      id: 4,
+      name: "Tchaikovsky",
+      address: "Ульяновск, Советская, 25",
+      image: barsData[4]?.image || "/images/bars/tchaykovsky.jpg",
+      description: "Классический бар с изысканной атмосферой"
+    }
+  ];
+
+  const handleBarClick = (bar) => {
+    navigate(`/admin/bar/${bar.id}`);
   };
 
   return (
@@ -660,6 +725,8 @@ function AdminPage({ user, onLogout, onToggleRole }) {
           </div>
           <h2 className="sidebar-title">Панель администратора</h2>
           
+
+
           <div className="accordion-section">
             <button 
               className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
@@ -693,39 +760,39 @@ function AdminPage({ user, onLogout, onToggleRole }) {
               </ul>
             )}
           </div>
-
-          <div className="points-display admin-total">
-            <span className="points-label">Всего пользователей:</span>
-            <span className="points-value">-</span>
-          </div>
         </div>
 
         {/* Main Content - Admin Panel */}
         <div className="main-content">
-          <h1 className="page-title">Администрирование</h1>
+          <h1 className="page-title">Управление барами</h1>
           
-          <div className="admin-container">
-            <div className="admin-card">
-              <div className="admin-welcome">
-                <h2 className="admin-title">Добро пожаловать в панель администратора!</h2>
-                <p className="admin-description">
-                  Здесь вы сможете управлять пользователями, просматривать статистику, 
-                  настраивать систему лояльности и многое другое.
-                </p>
+          <div className="bars-grid">
+            {bars.map(bar => (
+              <div 
+                key={bar.id} 
+                className="bar-card admin-bar-card" 
+                onClick={() => handleBarClick(bar)}
+              >
+                <div className="bar-image-container">
+                  <img src={bar.image} alt={bar.name} className="bar-image" />
+                  <div className="admin-overlay">
+                    <div className="admin-overlay-content">
+                      <span>⚙️</span>
+                      <p>Редактировать</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bar-info">
+                  <h3 className="bar-name">{bar.name}</h3>
+                  <p className="bar-address">{bar.address}</p>
+                </div>
               </div>
-              
-              <div className="admin-placeholder">
-                <div className="placeholder-icon">⚙️</div>
-                <h3 className="placeholder-title">Панель в разработке</h3>
-                <p className="placeholder-text">
-                  Функционал администрирования будет добавлен в ближайшее время.
-                  Пока что используйте кнопки навигации для переключения между разделами.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+
     </div>
   );
 }

@@ -25,33 +25,45 @@ const MenuModal = ({ items, currentBonuses, onClose, onItemClick, barName }) => 
           <span className="menu-bonuses-text">Ваши бонусы: {currentBonuses}</span>
         </div>
         
-        <div className="menu-items-grid">
-          {items.map(item => (
-            <div key={item.id} className="menu-item-card">
-              <div className="menu-item-image-container">
-                <img 
-                  src='/images/drinks/tapas-1.jpg.png'
-                  alt={item.name}
-                  className="menu-item-image"
-                  onError={(e) => {
-                    e.target.src = '/images/drinks/placeholder-drink.svg';
-                  }}
-                />
+        {items.length > 0 ? (
+          <div className="menu-items-grid">
+            {items.map(item => (
+              <div key={item.id} className="menu-item-card">
+                <div className="menu-item-image-container">
+                  <img 
+                    src='/images/drinks/tapas-1.jpg.png'
+                    alt={item.name}
+                    className="menu-item-image"
+                    onError={(e) => {
+                      e.target.src = '/images/drinks/placeholder-drink.svg';
+                    }}
+                  />
+                </div>
+                <div className="menu-item-info">
+                  <h3 className="menu-item-name">{item.name}</h3>
+                  <div className="menu-item-price">{item.price} баллов</div>
+                  <button 
+                    className={`menu-item-button ${currentBonuses < item.price ? 'insufficient-funds' : ''}`}
+                    onClick={() => currentBonuses >= item.price && onItemClick(item)}
+                    disabled={currentBonuses < item.price}
+                  >
+                    Потратить
+                  </button>
+                </div>
               </div>
-              <div className="menu-item-info">
-                <h3 className="menu-item-name">{item.name}</h3>
-                <div className="menu-item-price">{item.price} баллов</div>
-                <button 
-                  className={`menu-item-button ${currentBonuses < item.price ? 'insufficient-funds' : ''}`}
-                  onClick={() => currentBonuses >= item.price && onItemClick(item)}
-                  disabled={currentBonuses < item.price}
-                >
-                  Потратить
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="menu-empty-state">
+            <div className="empty-state-icon">🍽️</div>
+            <h3 className="empty-state-title">Меню пока не доступно</h3>
+            <p className="empty-state-message">
+              Администратор добавит товары и напитки в ближайшее время.
+              <br />
+              Следите за обновлениями!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import WebApp from '@twa-dev/sdk';
+import config from '../config';
 
-const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const apiUrl = config.apiUrl;
 const useMockAuth = process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost';
 
 // Mock Telegram client data for development
