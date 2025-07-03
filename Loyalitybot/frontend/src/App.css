@@ -1010,126 +1010,194 @@ div.main-container {
 }
 
 @media (max-width: 768px) {
-  .bars-grid {
-    grid-template-columns: 1fr;
-    gap: 30px;
-    max-width: 400px;
-  }
-  
-  .top-navigation {
-    flex-direction: column;
-    gap: 15px;
-    align-items: center;
-  }
-  
-  .nav-buttons {
-    width: 100%;
-    justify-content: center;
-  }
-  
   .loyalty-sidebar {
-    flex-direction: column;
-    text-align: center;
+    width: 200px !important;
+    padding: 10px !important;
   }
-  
+
   .loyalty-logo {
-    margin: 20px 0;
+    margin-bottom: 15px !important;
   }
-  
+
+  .logo-circle {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .logo-circle img {
+    width: 35px !important;
+    height: 35px !important;
+  }
+
   .sidebar-title {
-    margin: 20px 0 10px 0;
+    font-size: 16px !important;
   }
-  
+
   .accordion-section {
-    margin-bottom: 20px;
+    margin-bottom: 15px !important;
   }
-  
+
   .accordion-button {
-    font-size: 20px;
-    padding: 10px 15px;
+    font-size: 12px !important;
+    padding: 6px 8px !important;
   }
-  
-  .bar-description-overlay {
-    padding: 15px;
-  }
-  
-  .bar-description-content h4 {
-    font-size: 20px;
-  }
-  
-  .bar-description-content p {
-    font-size: 12px;
-  }
-  
+
   .points-display {
-    margin: 20px 0;
+    padding: 8px !important;
   }
-  
+
+  .bars-points-list {
+    margin-bottom: 8px !important;
+  }
+
+  .bar-points-item {
+    padding: 4px 0 !important;
+    font-size: 10px !important;
+  }
+
+  .total-points-summary {
+    padding: 4px 0 !important;
+    font-size: 10px !important;
+  }
+
   .main-content {
-    padding: 20px;
+    padding: 15px !important;
   }
-  
-  .page-title {
-    font-size: 28px;
-    margin-bottom: 30px;
+
+  .bars-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 15px !important;
   }
-  
+
+  .bar-card {
+    min-height: 200px !important;
+  }
+
   .bar-name {
-    font-size: 22px;
+    font-size: 14px !important;
+  }
+
+  .bar-address {
+    font-size: 10px !important;
+  }
+
+  .bar-user-points {
+    padding: 6px 8px !important;
+  }
+
+  .user-points-label,
+  .user-points-value {
+    font-size: 9px !important;
+  }
+
+  .page-title {
+    font-size: 20px !important;
+    margin-bottom: 15px !important;
+  }
+
+  .top-navigation {
+    padding: 8px 10px !important;
+  }
+
+  .nav-buttons {
+    gap: 5px !important;
+  }
+
+  .profile-btn,
+  .admin-btn,
+  .logout-btn {
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .user-info-top {
+    font-size: 12px !important;
   }
 }
 
 @media (max-width: 480px) {
-  .top-navigation {
-    padding: 10px 15px;
+  .loyalty-sidebar {
+    width: 150px !important;
+    padding: 8px !important;
   }
-  
-  .profile-btn,
-  .logout-btn {
-    padding: 6px 12px;
-    font-size: 0.8rem;
+
+  .logo-circle {
+    width: 40px !important;
+    height: 40px !important;
   }
-  
-  .user-info-top {
-    font-size: 0.8rem;
-  }
-  
-  .bars-grid {
-    max-width: 300px;
-    gap: 20px;
-  }
-  
-  .bar-name {
-    font-size: 20px;
-  }
-  
-  .bar-address {
-    font-size: 12px;
-  }
-  
-  .page-title {
-    font-size: 24px;
+
+  .logo-circle img {
+    width: 25px !important;
+    height: 25px !important;
   }
   
   .sidebar-title {
-    font-size: 20px;
+    font-size: 14px !important;
   }
   
   .accordion-button {
-    font-size: 18px;
-    padding: 8px 12px;
+    font-size: 10px !important;
+    padding: 4px 6px !important;
+  }
+
+  .bar-points-item,
+  .total-points-summary {
+    font-size: 8px !important;
+    padding: 2px 0 !important;
+  }
+
+  .main-content {
+    padding: 10px !important;
+  }
+
+  .bars-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .bar-card {
+    min-height: 150px !important;
   }
   
-  .bar-description-overlay {
-    padding: 10px;
+  .bar-name {
+    font-size: 12px !important;
   }
   
-  .bar-description-content h4 {
-    font-size: 18px;
+  .bar-address {
+    font-size: 8px !important;
   }
   
-  .bar-description-content p {
-    font-size: 11px;
+  .page-title {
+    font-size: 16px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .top-navigation {
+    padding: 5px !important;
+  }
+  
+  .profile-btn,
+  .admin-btn,
+  .logout-btn {
+    padding: 3px 5px !important;
+    font-size: 8px !important;
+  }
+  
+  .user-info-top {
+    font-size: 10px !important;
+  }
+
+  .bar-user-points {
+    padding: 4px 6px !important;
+  }
+
+  .user-points-label,
+  .user-points-value {
+    font-size: 7px !important;
+  }
+
+  .points-display {
+    padding: 5px !important;
   }
 }
 

@@ -26,7 +26,8 @@ services:
       - NODE_ENV=production
       - PORT=8000
       - MONGO_URI=mongodb://admin:GevPass12@mongo:27017/loyalty-prod-db?authSource=admin
-      - BACKEND_URL=http://localhost:8000
+      - BACKEND_URL=https://your-domain.com
+      - FRONTEND_URL=https://your-domain.com
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
@@ -46,7 +47,7 @@ services:
     env_file:
       - env.prod
     environment:
-      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_API_URL=https://your-domain.com/api
       - REACT_APP_TELEGRAM_BOT_NAME=Loyalty_bot
       - REACT_APP_USE_MOCK_AUTH=false
     networks:

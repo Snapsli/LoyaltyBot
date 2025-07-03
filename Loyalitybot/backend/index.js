@@ -11,9 +11,18 @@ const Bar = require('./models/Bar');
 const MenuItem = require('./models/MenuItem');
 
 const app = express();
-app.use(cors({
-    exposedHeaders: ['Content-Range']
-}));
+// CORS configuration for production
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['http://localhost:3000', process.env.FRONTEND_URL] // Add your production domain here
+        : true, // Allow all origins in development
+    credentials: true,
+    exposedHeaders: ['Content-Range'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-telegram-id', 'x-session-token']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -52,8 +61,12 @@ const upload = multer({
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.error(err));    
+    .then(() => {
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('MongoDB connected');
+        }
+    })
+    .catch(err => console.error('MongoDB connection error:', err));    
 
 // Authentication Middleware
 const requireAuth = async (req, res, next) => {
