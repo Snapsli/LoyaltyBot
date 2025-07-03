@@ -1,17 +1,36 @@
 import React, { useState } from 'react';
 import MenuModal from './MenuModal';
 
+// Helper functions for bars and points (same as in App.js)
+const BAR_NAMES = {
+  1: "Культура",
+  2: "Caballitos Mexican Bar", 
+  3: "Fonoteca - Listening Bar",
+  4: "Tchaikovsky"
+};
+
+const getUserBarPoints = (user, barId) => {
+  if (!user || !user.barPoints) return 0;
+  // Try both string and numeric keys for compatibility
+  return user.barPoints[barId.toString()] || user.barPoints[barId] || 0;
+};
+
+const getTotalUserPoints = (user) => {
+  if (!user || !user.barPoints) return 0;
+  const barPoints = user.barPoints;
+  return Object.values(barPoints).reduce((total, points) => total + (points || 0), 0);
+};
+
 const BarDetail = ({ bar, user, onBack }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
-  const [currentBalance, setCurrentBalance] = useState(user?.balance || 0);
   const [barData, setBarData] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Получаем общий баланс пользователя
-  const getTotalBonuses = () => {
-    return currentBalance;
+  // Получаем баллы пользователя для этого бара
+  const getCurrentBarPoints = () => {
+    return getUserBarPoints(user, bar.id);
   };
 
   const handleSpendBonuses = () => {
@@ -55,7 +74,7 @@ const BarDetail = ({ bar, user, onBack }) => {
       <div className="top-navigation">
         <div className="user-info-top">
           <span>Привет, {user.first_name}!</span>
-          <span>{getTotalBonuses()} pts</span>
+          <span>{getTotalUserPoints(user)} pts</span>
         </div>
         <div className="nav-buttons">
           <button onClick={onBack} className="profile-btn">
@@ -76,8 +95,19 @@ const BarDetail = ({ bar, user, onBack }) => {
           <h2 className="sidebar-title">Программа лояльности</h2>
           
           <div className="points-display">
-            <span className="points-label">Все баллы по заведениям:</span>
-            <span className="points-value">{getTotalBonuses()}</span>
+            <span className="points-label">Баллы по заведениям:</span>
+            <div className="bars-points-list">
+              {Object.entries(BAR_NAMES).map(([barId, barName]) => (
+                <div key={barId} className="bar-points-item">
+                  <span className="bar-name">{barName}:</span>
+                  <span className="bar-points">{getUserBarPoints(user, barId)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="total-points-summary">
+              <span className="points-label">Общий итог:</span>
+              <span className="points-value">{getTotalUserPoints(user)}</span>
+            </div>
           </div>
 
           <div className="accordion-section faq-section">
@@ -137,8 +167,8 @@ const BarDetail = ({ bar, user, onBack }) => {
                   )}
                 </div>
                 <div className="bar-detail-bonuses">
-                  <span className="bar-bonuses-label">Ваши бонусы: </span>
-                  <span className="bar-bonuses-value">{currentBalance}</span>
+                  <span className="bar-bonuses-label">Ваши бонусы в {bar.name}: </span>
+                  <span className="bar-bonuses-value">{getCurrentBarPoints()}</span>
                 </div>
                 <button className="bar-spend-button" onClick={handleSpendBonuses}>
                   Потратить
@@ -152,7 +182,7 @@ const BarDetail = ({ bar, user, onBack }) => {
       {showMenu && (
         <MenuModal
           items={menuItems}
-          currentBonuses={currentBalance}
+          currentBonuses={getCurrentBarPoints()}
           onClose={() => setShowMenu(false)}
           onItemClick={(item) => {
             // TODO: Реализовать покупку товара

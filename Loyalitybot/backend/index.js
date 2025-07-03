@@ -167,8 +167,19 @@ app.post('/api/auth/telegram', async (req, res) => {
 app.get('/api/auth/me', requireAuth, (req, res) => {
   // req.user is populated by the requireAuth middleware
   
-  // Include role and balance in the response
-  const { telegramId, username, firstName, lastName, phone, role, balance } = req.user;
+  // Include role, balance and barPoints in the response
+  const { telegramId, username, firstName, lastName, phone, role, balance, barPoints } = req.user;
+  
+  // Format barPoints for response
+  let formattedBarPoints = {};
+  if (barPoints instanceof Map) {
+    formattedBarPoints = Object.fromEntries(barPoints);
+  } else if (barPoints && typeof barPoints === 'object') {
+    formattedBarPoints = barPoints;
+  } else {
+    // Initialize with default values if missing
+    formattedBarPoints = { '1': 0, '2': 0, '3': 0, '4': 0 };
+  }
   
   // Return only necessary, non-sensitive user details
   res.status(200).json({
@@ -178,7 +189,8 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
     last_name: lastName,
     phone: phone,
     role: role,
-    balance: balance
+    balance: balance,
+    barPoints: formattedBarPoints
   });
   console.log(`Session verified via /api/auth/me for user: ${telegramId}`);
 });
@@ -191,7 +203,30 @@ app.get('/api/users', requireAuth, async (req, res) => {
     }
 
     const users = await User.find({}).select('-sessionToken');
-    res.status(200).json(users);
+    console.log('=== FETCHING ALL USERS ===');
+    console.log('Raw users from DB:', users.length);
+    
+    // Ensure barPoints is properly formatted for each user
+    const formattedUsers = users.map(user => {
+      const userObj = user.toObject();
+      console.log(`User ${userObj.firstName} raw barPoints:`, userObj.barPoints);
+      console.log(`User ${userObj.firstName} barPoints type:`, typeof userObj.barPoints);
+      
+      // Convert barPoints to proper format
+      if (userObj.barPoints instanceof Map) {
+        // Convert Map to Object
+        userObj.barPoints = Object.fromEntries(userObj.barPoints);
+      } else if (!userObj.barPoints || typeof userObj.barPoints !== 'object') {
+        // Initialize with default values if missing or invalid
+        userObj.barPoints = { '1': 0, '2': 0, '3': 0, '4': 0 };
+      }
+      
+      console.log(`User ${userObj.firstName} final barPoints:`, userObj.barPoints);
+      return userObj;
+    });
+    
+    console.log('Sending formatted users:', formattedUsers.length);
+    res.status(200).json(formattedUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -252,6 +287,196 @@ app.put('/api/users/:userId/block', requireAuth, async (req, res) => {
     res.status(200).json(user);
   } catch (error) {
     console.error('Error updating user block status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add points to user for specific bar (Admin only)
+app.put('/api/users/:userId/add-bar-points', requireAuth, async (req, res) => {
+  try {
+    console.log('=== ADD BAR POINTS REQUEST ===');
+    console.log('userId:', req.params.userId);
+    console.log('body:', req.body);
+    console.log('user role:', req.user.role);
+    
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.params;
+    const { points, barId } = req.body;
+
+    if (typeof points !== 'number' || points <= 0) {
+      return res.status(400).json({ error: 'Points must be a positive number' });
+    }
+
+    if (!barId || !['1', '2', '3', '4'].includes(String(barId))) {
+      return res.status(400).json({ error: 'Valid barId (1-4) is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Initialize barPoints if not exists
+    if (!user.barPoints) {
+      user.barPoints = new Map();
+      user.barPoints.set('1', 0);
+      user.barPoints.set('2', 0);
+      user.barPoints.set('3', 0);
+      user.barPoints.set('4', 0);
+    }
+
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    console.log(`Current points for bar ${barIdStr}:`, currentPoints);
+    
+    user.barPoints.set(barIdStr, currentPoints + points);
+    console.log('New barPoints after set:', Object.fromEntries(user.barPoints));
+    
+    await user.save();
+    console.log('User saved successfully');
+
+    const response = {
+      message: `Added ${points} points to user ${user.firstName} for bar ${barId}`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        barPoints: Object.fromEntries(user.barPoints)
+      }
+    };
+    
+    console.log('Sending response:', response);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error adding bar points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Remove points from user for specific bar (Admin only)
+app.put('/api/users/:userId/remove-bar-points', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.params;
+    const { points, barId } = req.body;
+
+    if (typeof points !== 'number' || points <= 0) {
+      return res.status(400).json({ error: 'Points must be a positive number' });
+    }
+
+    if (!barId || !['1', '2', '3', '4'].includes(String(barId))) {
+      return res.status(400).json({ error: 'Valid barId (1-4) is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Initialize barPoints if not exists
+    if (!user.barPoints) {
+      user.barPoints = new Map();
+      user.barPoints.set('1', 0);
+      user.barPoints.set('2', 0);
+      user.barPoints.set('3', 0);
+      user.barPoints.set('4', 0);
+    }
+
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    user.barPoints.set(barIdStr, Math.max(0, currentPoints - points));
+    await user.save();
+
+    res.status(200).json({
+      message: `Removed ${points} points from user ${user.firstName} for bar ${barId}`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        barPoints: Object.fromEntries(user.barPoints)
+      }
+    });
+  } catch (error) {
+    console.error('Error removing bar points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Legacy endpoints for backward compatibility
+app.put('/api/users/:userId/add-points', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.params;
+    const { points } = req.body;
+
+    if (typeof points !== 'number' || points <= 0) {
+      return res.status(400).json({ error: 'Points must be a positive number' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.balance = (user.balance || 0) + points;
+    await user.save();
+
+    res.status(200).json({
+      message: `Added ${points} points to user ${user.firstName} (legacy balance)`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        balance: user.balance
+      }
+    });
+  } catch (error) {
+    console.error('Error adding points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/users/:userId/remove-points', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { userId } = req.params;
+    const { points } = req.body;
+
+    if (typeof points !== 'number' || points <= 0) {
+      return res.status(400).json({ error: 'Points must be a positive number' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.balance = Math.max(0, (user.balance || 0) - points);
+    await user.save();
+
+    res.status(200).json({
+      message: `Removed ${points} points from user ${user.firstName} (legacy balance)`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        balance: user.balance
+      }
+    });
+  } catch (error) {
+    console.error('Error removing points:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

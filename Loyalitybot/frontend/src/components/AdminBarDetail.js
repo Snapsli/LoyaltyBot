@@ -341,7 +341,7 @@ const AdminBarDetail = ({ user }) => {
             </button>
             {expandedSection === 'manage' && (
               <ul className="accordion-content">
-                <li>Пользователи</li>
+                <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
                 <li>Баллы</li>
                 <li>Настройки</li>
               </ul>

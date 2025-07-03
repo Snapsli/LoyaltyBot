@@ -16,7 +16,19 @@ const userSchema = new mongoose.Schema({
     sessionToken: { type: String },
 
     // Loyalty program fields
-    balance: { type: Number, default: 0 },
+    balance: { type: Number, default: 0 }, // Deprecated - use barPoints instead
+    barPoints: {
+        type: Map,
+        of: Number,
+        default: function() {
+            return new Map([
+                ['1', 0], // Культура
+                ['2', 0], // Caballitos Mexican Bar
+                ['3', 0], // Fonoteca - Listening Bar
+                ['4', 0]  // Tchaikovsky
+            ]);
+        }
+    },
     lastBalanceReset: { type: Date },
     
     // User management
@@ -47,6 +59,13 @@ userSchema.virtual("id").get(function () {
 // Ensure virtuals are included when converting documents to JSON
 userSchema.set("toJSON", {
     virtuals: true,
+    transform: function(doc, ret) {
+        // Convert barPoints Map to Object for JSON serialization
+        if (ret.barPoints instanceof Map) {
+            ret.barPoints = Object.fromEntries(ret.barPoints);
+        }
+        return ret;
+    }
 });
 
 module.exports = mongoose.model('User', userSchema); 

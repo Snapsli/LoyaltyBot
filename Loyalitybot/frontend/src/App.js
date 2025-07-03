@@ -3,9 +3,35 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import './App.css';
 import BarLoyalty from './components/BarLoyalty';
 import AdminBarDetail from './components/AdminBarDetail';
+import UserManagement from './components/UserManagement';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
+
+// Helper functions for bars and points
+const BAR_NAMES = {
+  1: "Культура",
+  2: "Caballitos Mexican Bar", 
+  3: "Fonoteca - Listening Bar",
+  4: "Tchaikovsky"
+};
+
+const getUserBarPoints = (user, barId) => {
+  if (!user || !user.barPoints) return 0;
+  // Try both string and numeric keys for compatibility
+  return user.barPoints[barId.toString()] || user.barPoints[barId] || 0;
+};
+
+const getAllUserBarPoints = (user) => {
+  if (!user || !user.barPoints) return {};
+  return user.barPoints;
+};
+
+const getTotalUserPoints = (user) => {
+  if (!user || !user.barPoints) return 0;
+  const barPoints = getAllUserBarPoints(user);
+  return Object.values(barPoints).reduce((total, points) => total + (points || 0), 0);
+};
 
 // Mock authentication for development
 const mockAuth = {
@@ -171,15 +197,20 @@ function App() {
 
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/me`, {
         headers: {
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-telegram-id': user.id.toString(),
+          'x-session-token': token
         }
       });
 
       if (response.ok) {
         const userData = await response.json();
-        setUser(prev => ({ ...prev, balance: userData.balance }));
-        localStorage.setItem('loyalty_user', JSON.stringify({ ...user, balance: userData.balance }));
+        const updatedUser = { 
+          ...user, 
+          balance: userData.balance,
+          barPoints: userData.barPoints || {}
+        };
+        setUser(updatedUser);
+        localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
       }
     } catch (err) {
       console.error('Error refreshing points:', err);
@@ -247,6 +278,7 @@ function App() {
           <>
             <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
             <Route path="/admin/bar/:barId" element={<AdminBarDetail user={user} />} />
+            <Route path="/admin/users" element={<UserManagement user={user} />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -282,11 +314,6 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
     } catch (error) {
       console.error('Error loading bars data:', error);
     }
-  };
-
-  // Получаем баланс пользователя из базы данных
-  const getTotalBonuses = () => {
-    return user?.balance || 0;
   };
 
   const loadStats = async () => {
@@ -350,7 +377,7 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
       <div className="top-navigation">
         <div className="user-info-top">
           <span>Привет, {user.first_name}!</span>
-          <span>{getTotalBonuses()} pts</span>
+          <span>{getTotalUserPoints(user)} pts</span>
         </div>
         <div className="nav-buttons">
           <button onClick={() => navigate('/profile')} className="profile-btn">
@@ -384,8 +411,19 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
           <h2 className="sidebar-title">Программа лояльности</h2>
           
           <div className="points-display">
-            <span className="points-label">Все баллы по заведениям:</span>
-            <span className="points-value">{getTotalBonuses()}</span>
+            <span className="points-label">Баллы по заведениям:</span>
+            <div className="bars-points-list">
+              {Object.entries(BAR_NAMES).map(([barId, barName]) => (
+                <div key={barId} className="bar-points-item">
+                  <span className="bar-name">{barName}:</span>
+                  <span className="bar-points">{getUserBarPoints(user, barId)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="total-points-summary">
+              <span className="points-label">Общий итог:</span>
+              <span className="points-value">{getTotalUserPoints(user)}</span>
+            </div>
             <button onClick={onRefreshPoints} className="refresh-points-btn">↻</button>
           </div>
 
@@ -447,6 +485,10 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
               <div className="bar-info">
                 <h3 className="bar-name">{bar.name}</h3>
                 <p className="bar-address">{bar.address}</p>
+                <div className="bar-user-points">
+                  <span className="user-points-label">Ваши баллы:</span>
+                  <span className="user-points-value">{getUserBarPoints(user, bar.id)} pts</span>
+                </div>
               </div>
             </div>
           ))}
@@ -462,11 +504,6 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
 
-  // Получаем баланс пользователя из базы данных
-  const getTotalBonuses = () => {
-    return user?.balance || 0;
-  };
-
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
@@ -477,7 +514,7 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
       <div className="top-navigation">
         <div className="user-info-top">
           <span>Привет, {user.first_name}!</span>
-          <span>{getTotalBonuses()} pts</span>
+          <span>{getTotalUserPoints(user)} pts</span>
         </div>
         <div className="nav-buttons">
           <button onClick={() => navigate('/')} className="profile-btn">
@@ -511,8 +548,19 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
           <h2 className="sidebar-title">Программа лояльности</h2>
           
           <div className="points-display">
-            <span className="points-label">Все баллы по заведениям:</span>
-            <span className="points-value">{getTotalBonuses()}</span>
+            <span className="points-label">Баллы по заведениям:</span>
+            <div className="bars-points-list">
+              {Object.entries(BAR_NAMES).map(([barId, barName]) => (
+                <div key={barId} className="bar-points-item">
+                  <span className="bar-name">{barName}:</span>
+                  <span className="bar-points">{getUserBarPoints(user, barId)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="total-points-summary">
+              <span className="points-label">Общий итог:</span>
+              <span className="points-value">{getTotalUserPoints(user)}</span>
+            </div>
           </div>
 
           <div className="accordion-section faq-section">
@@ -588,25 +636,19 @@ function ProfilePage({ user, onLogout, onToggleRole }) {
                 
                 <div className="profile-field highlight">
                   <span className="field-label">Общие баллы:</span>
-                  <span className="field-value total-points">{getTotalBonuses()}</span>
+                  <span className="field-value total-points">{getTotalUserPoints(user)}</span>
                 </div>
               </div>
               
               <div className="profile-bars-breakdown">
-                <h3 className="breakdown-title">Доступные бары:</h3>
+                <h3 className="breakdown-title">Баллы по заведениям:</h3>
                 <div className="bars-breakdown">
-                  <div className="bar-points">
-                    <span className="bar-name">Культура</span>
-                  </div>
-                  <div className="bar-points">
-                    <span className="bar-name">Cabalitos</span>
-                  </div>
-                  <div className="bar-points">
-                    <span className="bar-name">Фонотека</span>
-                  </div>
-                  <div className="bar-points">
-                    <span className="bar-name">Tchaykovsky</span>
-                  </div>
+                  {Object.entries(BAR_NAMES).map(([barId, barName]) => (
+                    <div key={barId} className="bar-points">
+                      <span className="bar-name">{barName}</span>
+                      <span className="bar-points-value">{getUserBarPoints(user, barId)} pts</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -642,11 +684,6 @@ function AdminPage({ user, onLogout, onToggleRole }) {
   React.useEffect(() => {
     loadBarsData();
   }, []);
-
-  // Получаем баланс пользователя из базы данных
-  const getTotalBonuses = () => {
-    return user?.balance || 0;
-  };
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -694,7 +731,7 @@ function AdminPage({ user, onLogout, onToggleRole }) {
       <div className="top-navigation">
         <div className="user-info-top">
           <span>Привет, {user.first_name}!</span>
-          <span>{getTotalBonuses()} pts</span>
+          <span>{getTotalUserPoints(user)} pts</span>
         </div>
                  <div className="nav-buttons">
            <button onClick={() => navigate('/')} className="profile-btn">
@@ -754,7 +791,7 @@ function AdminPage({ user, onLogout, onToggleRole }) {
             </button>
             {expandedSection === 'manage' && (
               <ul className="accordion-content">
-                <li>Пользователи</li>
+                <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
                 <li>Баллы</li>
                 <li>Настройки</li>
               </ul>
