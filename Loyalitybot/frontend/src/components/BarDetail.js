@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MenuModal from './MenuModal';
 import QRModal from './QRModal';
+import EarnQRModal from './EarnQRModal';
 
 // Helper functions for bars and points (same as in App.js)
 const BAR_NAMES = {
@@ -25,6 +26,7 @@ const getTotalUserPoints = (user) => {
 const BarDetail = ({ bar, user, onBack }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showEarnQRModal, setShowEarnQRModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [barData, setBarData] = useState(null);
@@ -40,6 +42,10 @@ const BarDetail = ({ bar, user, onBack }) => {
     setShowMenu(true);
   };
 
+  const handleEarnBonuses = () => {
+    setShowEarnQRModal(true);
+  };
+
   const handleItemClick = (item) => {
     setSelectedItem(item);
     setShowMenu(false);
@@ -49,6 +55,10 @@ const BarDetail = ({ bar, user, onBack }) => {
   const handleCloseQR = () => {
     setShowQRModal(false);
     setSelectedItem(null);
+  };
+
+  const handleCloseEarnQR = () => {
+    setShowEarnQRModal(false);
   };
 
   React.useEffect(() => {
@@ -184,9 +194,14 @@ const BarDetail = ({ bar, user, onBack }) => {
                   <span className="bar-bonuses-label">Ваши бонусы в {bar.name}: </span>
                   <span className="bar-bonuses-value">{getCurrentBarPoints()}</span>
                 </div>
-                <button className="bar-spend-button" onClick={handleSpendBonuses}>
-                  Потратить
-                </button>
+                <div className="bar-action-buttons">
+                  <button className="bar-spend-button" onClick={handleSpendBonuses}>
+                    Потратить
+                  </button>
+                  <button className="bar-earn-button" onClick={handleEarnBonuses}>
+                    Копить
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -212,6 +227,15 @@ const BarDetail = ({ bar, user, onBack }) => {
           itemName={selectedItem.name}
           itemPrice={selectedItem.price}
           onClose={handleCloseQR}
+        />
+      )}
+
+      {showEarnQRModal && (
+        <EarnQRModal
+          userId={user._id || user.id}
+          barId={bar.id}
+          barName={bar.name}
+          onClose={handleCloseEarnQR}
         />
       )}
     </div>

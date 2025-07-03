@@ -91,6 +91,15 @@
   margin: 0;
 }
 
+.qr-earn-description {
+  color: #28a745;
+  font-size: 14px;
+  margin: 8px 0 0 0;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .qr-code-container {
   display: flex;
   flex-direction: column;
@@ -374,4 +383,28 @@
     justify-content: center;
     width: 100%;
   }
+}
+
+/* Earn Points Specific Styles */
+.earned-points {
+  color: #28a745;
+  font-size: 14px;
+  margin-top: 8px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.earn-emulation {
+  border: 2px dashed #007bff;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background: #f8f9ff;
+}
+
+.earn-emulation h4 {
+  color: #007bff;
+  font-size: 14px;
+  margin: 0 0 10px 0;
 } 

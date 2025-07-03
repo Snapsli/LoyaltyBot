@@ -65,6 +65,9 @@ const PointsManagement = ({ user, onLogout, onToggleRole }) => {
   const handleSaveSettings = async (barId, newSettings) => {
     try {
       setSaving(true);
+      
+      console.log('📤 Sending settings to backend for bar', barId, ':', newSettings);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/points-settings/${barId}`, {
         method: 'PUT',
         headers: {
@@ -75,12 +78,16 @@ const PointsManagement = ({ user, onLogout, onToggleRole }) => {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Backend response:', result);
+        
         setPointsSettings(prev => ({
           ...prev,
           [barId]: newSettings
         }));
         setEditingBar(null);
       } else {
+        console.error('❌ Failed to save settings, response:', response.status);
         alert('Ошибка при сохранении настроек');
       }
     } catch (error) {
@@ -241,6 +248,13 @@ const EditingForm = ({ barId, settings, onSave, onCancel, saving }) => {
       minPurchase: parseFloat(minPurchase) || 0,
       isActive
     };
+    
+    console.log('🔧 Admin saving settings for bar', barId);
+    console.log('  - rublesPer1Point:', rublesPer1Point);
+    console.log('  - calculated pointsPerRuble:', newSettings.pointsPerRuble);
+    console.log('  - minPurchase:', newSettings.minPurchase);
+    console.log('  - isActive:', newSettings.isActive);
+    
     onSave(newSettings);
   };
 

@@ -810,25 +810,185 @@ app.post('/api/purchase/qr', requireAuth, async (req, res) => {
   }
 });
 
+// Process QR earn points (Admin only - for barman scanning)
+app.post('/api/earn/qr', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { qrData, purchaseAmount } = req.body;
+
+    if (!qrData) {
+      return res.status(400).json({ error: 'QR data is required' });
+    }
+
+    if (!purchaseAmount || typeof purchaseAmount !== 'number' || purchaseAmount <= 0) {
+      return res.status(400).json({ error: 'Valid purchase amount is required' });
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(qrData);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+
+    const { type, userId, barId, barName, timestamp, expiresAt } = parsedData;
+
+    // Validate this is an earn QR code
+    if (type !== 'earn') {
+      return res.status(400).json({ error: 'Invalid QR code type' });
+    }
+
+    // Validate required fields
+    if (!userId || !barId || !barName || !timestamp || !expiresAt) {
+      return res.status(400).json({ error: 'Invalid QR code data' });
+    }
+
+    // Check if QR code is expired
+    const now = Date.now();
+    if (now > expiresAt) {
+      return res.status(400).json({ error: 'QR code has expired' });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get points settings for this bar
+    const barSettings = getBarPointsSettings(barId);
+    console.log(`💰 Earning points for bar ${barId} (${barName})`);
+    console.log(`💰 Using settings:`, barSettings);
+    console.log(`💰 Rate: 1 point = ${Math.round(1/barSettings.pointsPerRuble)} ₽`);
+    
+    // Check if points earning is active for this bar
+    if (!barSettings.isActive) {
+      return res.status(400).json({ 
+        error: 'Points earning is disabled for this bar',
+        barId,
+        barName
+      });
+    }
+
+    // Check minimum purchase requirement
+    if (purchaseAmount < barSettings.minPurchase) {
+      return res.status(400).json({ 
+        error: `Purchase amount is below minimum threshold of ${barSettings.minPurchase} rubles`,
+        purchaseAmount,
+        minPurchase: barSettings.minPurchase
+      });
+    }
+
+    // Calculate points to earn using bar-specific settings
+    const pointsEarned = Math.floor(purchaseAmount * barSettings.pointsPerRuble);
+
+    if (pointsEarned <= 0) {
+      return res.status(400).json({ error: 'Purchase amount too small to earn points' });
+    }
+
+    // Add points to user
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    const newPoints = currentPoints + pointsEarned;
+    
+    user.barPoints.set(barIdStr, newPoints);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Points earned successfully: +${pointsEarned} points`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      transaction: {
+        barId,
+        barName,
+        purchaseAmount,
+        pointsEarned,
+        pointsPerRuble: barSettings.pointsPerRuble,
+        minPurchase: barSettings.minPurchase,
+        calculation: `${purchaseAmount} ₽ × ${barSettings.pointsPerRuble} = ${pointsEarned} points`,
+        timestamp: new Date(timestamp)
+      },
+      previousPoints: currentPoints,
+      newTotalPoints: newPoints
+    });
+  } catch (error) {
+    console.error('Error processing QR earn points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Points Settings Management (Admin only)
 
-// Get points settings for all bars
+// In-memory storage for points settings (later can be replaced with DB)
+let pointsSettings = {
+  '1': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Культура
+  '2': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Caballitos
+  '3': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Fonoteca
+  '4': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }  // Tchaikovsky
+};
+
+// Helper function to get points settings for a specific bar
+const getBarPointsSettings = (barId) => {
+  return pointsSettings[String(barId)] || { pointsPerRuble: 0.01, minPurchase: 0, isActive: true };
+};
+
+// Helper function to update points settings for a specific bar
+const updateBarPointsSettings = (barId, newSettings) => {
+  pointsSettings[String(barId)] = { ...getBarPointsSettings(barId), ...newSettings };
+  return pointsSettings[String(barId)];
+};
+
+// Get points settings for all bars (Admin only)
 app.get('/api/admin/points-settings', requireAuth, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Возвращаем настройки по умолчанию для всех баров
-    const defaultSettings = {
-      '1': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Культура
-      '2': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Caballitos
-      '3': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Fonoteca
-      '4': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }  // Tchaikovsky
+    console.log('📥 GET /api/admin/points-settings called by:', req.user.firstName);
+    console.log('📥 Current pointsSettings object:', pointsSettings);
+
+    // Получаем настройки для всех баров используя общую функцию
+    const allSettings = {
+      '1': getBarPointsSettings('1'),
+      '2': getBarPointsSettings('2'),
+      '3': getBarPointsSettings('3'),
+      '4': getBarPointsSettings('4')
     };
 
-    // В будущем здесь можно добавить загрузку из БД
-    res.status(200).json(defaultSettings);
+    console.log('📤 GET /api/admin/points-settings - returning:', allSettings);
+    console.log('📤 Bar 1 settings specifically:', allSettings['1'], '(1 point =', Math.round(1/allSettings['1'].pointsPerRuble), '₽)');
+    res.status(200).json(allSettings);
+  } catch (error) {
+    console.error('Error fetching points settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get points settings for all bars (Public - for users)
+app.get('/api/points-settings', requireAuth, async (req, res) => {
+  try {
+    console.log('📥 GET /api/points-settings called by:', req.user.firstName);
+    console.log('📥 Current pointsSettings object:', pointsSettings);
+
+    // Получаем настройки для всех баров используя общую функцию
+    const allSettings = {
+      '1': getBarPointsSettings('1'),
+      '2': getBarPointsSettings('2'),
+      '3': getBarPointsSettings('3'),
+      '4': getBarPointsSettings('4')
+    };
+
+    console.log('📤 GET /api/points-settings - returning:', allSettings);
+    console.log('📤 Bar 1 settings specifically:', allSettings['1'], '(1 point =', Math.round(1/allSettings['1'].pointsPerRuble), '₽)');
+    res.status(200).json(allSettings);
   } catch (error) {
     console.error('Error fetching points settings:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -870,13 +1030,18 @@ app.put('/api/admin/points-settings/:barId', requireAuth, async (req, res) => {
       isActive
     };
 
-    // В будущем здесь можно добавить сохранение в БД
-    console.log(`Points settings updated for bar ${barId}:`, newSettings);
+    // Сохраняем настройки в памяти
+    const updatedSettings = updateBarPointsSettings(barId, newSettings);
+    console.log(`🔧 Points settings updated for bar ${barId}:`);
+    console.log('  - Received data:', { pointsPerRuble, minPurchase, isActive });
+    console.log('  - Updated settings:', updatedSettings);
+    console.log('  - Calculated rate: 1 point =', Math.round(1/updatedSettings.pointsPerRuble), '₽');
+    console.log('  - Current pointsSettings object:', pointsSettings);
 
     res.status(200).json({
       message: `Points settings updated for bar ${barId}`,
       barId,
-      settings: newSettings
+      settings: updatedSettings
     });
   } catch (error) {
     console.error('Error updating points settings:', error);
@@ -897,36 +1062,163 @@ app.post('/api/admin/calculate-points', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Valid barId and purchaseAmount are required' });
     }
 
-    // Получаем настройки для бара (пока используем значения по умолчанию)
-    const pointsPerRuble = 0.01; // 1 балл за 100 рублей
-    const minPurchase = 0;
-    const isActive = true;
+    // Получаем настройки для бара
+    const barSettings = getBarPointsSettings(barId);
 
-    if (!isActive) {
+    if (!barSettings.isActive) {
       return res.status(200).json({
         pointsEarned: 0,
-        message: 'Points earning is disabled for this bar'
+        message: 'Points earning is disabled for this bar',
+        settings: barSettings
       });
     }
 
-    if (purchaseAmount < minPurchase) {
+    if (purchaseAmount < barSettings.minPurchase) {
       return res.status(200).json({
         pointsEarned: 0,
-        message: `Purchase amount is below minimum threshold of ${minPurchase} rubles`
+        message: `Purchase amount is below minimum threshold of ${barSettings.minPurchase} rubles`,
+        settings: barSettings
       });
     }
 
-    const pointsEarned = Math.floor(purchaseAmount * pointsPerRuble);
+    const pointsEarned = Math.floor(purchaseAmount * barSettings.pointsPerRuble);
 
     res.status(200).json({
       pointsEarned,
       purchaseAmount,
-      pointsPerRuble,
-      minPurchase,
-      calculation: `${purchaseAmount} ₽ × ${pointsPerRuble} = ${pointsEarned} points`
+      pointsPerRuble: barSettings.pointsPerRuble,
+      minPurchase: barSettings.minPurchase,
+      calculation: `${purchaseAmount} ₽ × ${barSettings.pointsPerRuble} = ${pointsEarned} points`,
+      settings: barSettings
     });
   } catch (error) {
     console.error('Error calculating points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Development-only: Debug endpoint to check current settings
+app.get('/api/dev/points-settings-debug', (req, res) => {
+  console.log('🔍 DEBUG: Current pointsSettings object:', pointsSettings);
+  res.json({
+    currentSettings: pointsSettings,
+    timestamp: new Date().toISOString(),
+    message: 'Current in-memory settings'
+  });
+});
+
+// Development-only: Emulate earn points (for testing)
+app.post('/api/dev/emulate-earn', requireAuth, async (req, res) => {
+  try {
+    // Только в development режиме
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    if (nodeEnv === 'production') {
+      return res.status(403).json({ error: 'This endpoint is only available in development mode' });
+    }
+
+    const { qrData, purchaseAmount } = req.body;
+
+    if (!qrData) {
+      return res.status(400).json({ error: 'QR data is required' });
+    }
+
+    if (!purchaseAmount || typeof purchaseAmount !== 'number' || purchaseAmount <= 0) {
+      return res.status(400).json({ error: 'Valid purchase amount is required' });
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(qrData);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+
+    const { type, userId, barId, barName, timestamp, expiresAt } = parsedData;
+
+    // Validate this is an earn QR code
+    if (type !== 'earn') {
+      return res.status(400).json({ error: 'Invalid QR code type' });
+    }
+
+    // Validate required fields
+    if (!userId || !barId || !barName || !timestamp || !expiresAt) {
+      return res.status(400).json({ error: 'Invalid QR code data' });
+    }
+
+    // Check if QR code is expired
+    const now = Date.now();
+    if (now > expiresAt) {
+      return res.status(400).json({ error: 'QR code has expired' });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get points settings for this bar
+    const barSettings = getBarPointsSettings(barId);
+    console.log(`💰 DEV Emulate earning points for bar ${barId} (${barName})`);
+    console.log(`💰 Using settings:`, barSettings);
+    console.log(`💰 Rate: 1 point = ${Math.round(1/barSettings.pointsPerRuble)} ₽`);
+    
+    // Check if points earning is active for this bar
+    if (!barSettings.isActive) {
+      return res.status(400).json({ 
+        error: 'Points earning is disabled for this bar',
+        barId,
+        barName
+      });
+    }
+
+    // Check minimum purchase requirement
+    if (purchaseAmount < barSettings.minPurchase) {
+      return res.status(400).json({ 
+        error: `Purchase amount is below minimum threshold of ${barSettings.minPurchase} rubles`,
+        purchaseAmount,
+        minPurchase: barSettings.minPurchase
+      });
+    }
+
+    // Calculate points to earn using bar-specific settings
+    const pointsEarned = Math.floor(purchaseAmount * barSettings.pointsPerRuble);
+
+    if (pointsEarned <= 0) {
+      return res.status(400).json({ error: 'Purchase amount too small to earn points' });
+    }
+
+    // Add points to user
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    const newPoints = currentPoints + pointsEarned;
+    
+    user.barPoints.set(barIdStr, newPoints);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Points earned successfully: +${pointsEarned} points`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      transaction: {
+        barId,
+        barName,
+        purchaseAmount,
+        pointsEarned,
+        pointsPerRuble: barSettings.pointsPerRuble,
+        minPurchase: barSettings.minPurchase,
+        calculation: `${purchaseAmount} ₽ × ${barSettings.pointsPerRuble} = ${pointsEarned} points`,
+        timestamp: new Date(timestamp)
+      },
+      previousPoints: currentPoints,
+      newTotalPoints: newPoints
+    });
+  } catch (error) {
+    console.error('Error emulating earn points:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1328,6 +1328,40 @@ div.main-container {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2) !important;
 }
 
+.bar-action-buttons {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+  align-items: center !important;
+  margin-top: 20px !important;
+}
+
+.bar-earn-button {
+  background: #28a745 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  padding: 8px 0 !important;
+  border-radius: 25px !important;
+  font-family: 'Great Vibes', cursive !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 36px !important;
+  line-height: 45px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  width: 344px !important;
+  height: 53px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.bar-earn-button:hover {
+  background: #218838 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
 /* Responsive Design for Bar Detail Page */
 @media (max-width: 768px) {
   .bar-detail-page-title {
@@ -1362,9 +1396,16 @@ div.main-container {
     font-size: 24px !important;
   }
   
-  .bar-spend-button {
+  .bar-spend-button,
+  .bar-earn-button {
     padding: 12px 30px !important;
     font-size: 16px !important;
+    width: 280px !important;
+    height: 45px !important;
+  }
+  
+  .bar-action-buttons {
+    gap: 12px !important;
   }
 }
 
@@ -1399,9 +1440,16 @@ div.main-container {
     font-size: 22px !important;
   }
   
-  .bar-spend-button {
+  .bar-spend-button,
+  .bar-earn-button {
     padding: 10px 25px !important;
     font-size: 14px !important;
+    width: 250px !important;
+    height: 40px !important;
+  }
+  
+  .bar-action-buttons {
+    gap: 10px !important;
   }
 }
 
