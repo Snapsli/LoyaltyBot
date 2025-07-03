@@ -126,8 +126,7 @@ const AdminBarDetail = ({ user }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-session-token': token
         },
         body: JSON.stringify({ description })
       });
@@ -175,8 +174,7 @@ const AdminBarDetail = ({ user }) => {
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars/${barId}/image`, {
         method: 'PUT',
         headers: {
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-session-token': token
         },
         body: formData
       });
@@ -221,8 +219,7 @@ const AdminBarDetail = ({ user }) => {
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars/${barId}/menu`, {
         method: 'POST',
         headers: {
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-session-token': token
         },
         body: formData
       });
@@ -263,8 +260,7 @@ const AdminBarDetail = ({ user }) => {
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/menu/${itemId}`, {
         method: 'DELETE',
         headers: {
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-session-token': token
         }
       });
 

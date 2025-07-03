@@ -70,25 +70,18 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Authentication Middleware
 const requireAuth = async (req, res, next) => {
-  // Read custom headers
-  const telegramId = req.headers['x-telegram-id'];
   const sessionToken = req.headers['x-session-token'];
-
-  // Check if headers are present
-  if (!telegramId || !sessionToken) {
-    return res.status(401).json({ error: 'Authentication required (custom headers missing)' });
+  
+  if (!sessionToken) {
+    return res.status(401).json({ error: 'Authentication required (session token missing)' });
   }
 
   try {
-    // Find user by both Telegram ID and Session Token
-    const user = await User.findOne({ 
-      telegramId: telegramId, 
-      sessionToken: sessionToken 
-    });
+    // Find user by session token (works for both Telegram and classic auth)
+    const user = await User.findOne({ sessionToken: sessionToken });
 
-    // If user not found or token doesn't match
     if (!user) {
-      return res.status(401).json({ error: 'Invalid authentication (custom headers)' });
+      return res.status(401).json({ error: 'Invalid authentication' });
     }
 
     if (user.isBlocked) {
@@ -168,10 +161,68 @@ app.post('/api/auth/telegram', async (req, res) => {
     res.status(200).json({
       message: 'Authentication successful',
       telegram_id: user.telegramId,
-      session_token: sessionToken
+      session_token: sessionToken,
+      user: {
+        id: user.telegramId,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        username: user.username,
+        phone: user.phone,
+        role: user.role,
+        balance: user.balance,
+        barPoints: user.barPoints instanceof Map ? Object.fromEntries(user.barPoints) : user.barPoints || {}
+      }
     });
   } catch (error) {
     console.error('Authentication error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Classic Login Endpoint  
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    if (!user || user.authType !== 'classic') {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account is blocked by administrator.' });
+    }
+
+    // Generate new session token
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    user.sessionToken = sessionToken;
+    await user.save();
+
+    res.status(200).json({
+      message: 'Authentication successful',
+      session_token: sessionToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

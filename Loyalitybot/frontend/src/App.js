@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.css';
+import './styles/LoginPage.css';
 import BarLoyalty from './components/BarLoyalty';
 import AdminBarDetail from './components/AdminBarDetail';
 import UserManagement from './components/UserManagement';
+import LoginPage from './components/LoginPage';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -49,6 +51,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLoginPage, setShowLoginPage] = useState(false);
+  const [initialRoute, setInitialRoute] = useState('/');
 
   useEffect(() => {
     initializeApp();
@@ -88,22 +92,26 @@ function App() {
       const storedToken = localStorage.getItem('loyalty_token');
       
       if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        
+        // Устанавливаем маршрут в зависимости от типа авторизации
+        if (userData.email) {
+          // Это авторизация через логин/пароль - админ панель
+          setInitialRoute('/admin');
+        } else {
+          // Это авторизация через Telegram - главная страница  
+          setInitialRoute('/');
+        }
         return;
       }
 
-      // Try Telegram authentication
-      if (tg?.initDataUnsafe?.user) {
-        await authenticateWithTelegram();
-      } else if (process.env.NODE_ENV === 'development') {
-        // Use mock auth in development
-        await authenticateWithMock();
-      } else {
-        throw new Error('No authentication method available');
-      }
+      // Show login page for user to choose auth method
+      setShowLoginPage(true);
     } catch (err) {
       console.error('Authentication error:', err);
       setError('Authentication failed');
+      setShowLoginPage(true);
     }
   };
 
@@ -129,7 +137,11 @@ function App() {
       
       // Store auth data
       localStorage.setItem('loyalty_user', JSON.stringify(data.user));
-      localStorage.setItem('loyalty_token', data.token);
+      localStorage.setItem('loyalty_token', data.session_token);
+      setShowLoginPage(false);
+      
+      // Перенаправляем пользователей Telegram на главную страницу
+      setInitialRoute('/');
       
     } catch (err) {
       console.error('Telegram auth error:', err);
@@ -160,19 +172,18 @@ function App() {
 
       const data = await response.json();
       
-      // Create user object with proper structure
-      const user = {
-        id: data.telegram_id,
-        first_name: mockAuth.user.first_name,
-        last_name: mockAuth.user.last_name,
-        username: mockAuth.user.username,
-        role: "admin", // First user becomes admin
-        balance: 0
-      };
-      
-      setUser(user);
-      localStorage.setItem('loyalty_user', JSON.stringify(user));
+      // Use user data from server (includes correct role)
+      setUser(data.user);
+      localStorage.setItem('loyalty_user', JSON.stringify(data.user));
       localStorage.setItem('loyalty_token', data.session_token);
+      setShowLoginPage(false);
+      
+      // В development режиме перенаправляем в зависимости от роли от сервера
+      if (data.user.role === 'admin') {
+        setInitialRoute('/admin');
+      } else {
+        setInitialRoute('/');
+      }
       
     } catch (err) {
       console.error('Mock auth error:', err);
@@ -180,10 +191,86 @@ function App() {
     }
   };
 
+  const authenticateWithClassic = async (email, password) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
+      }
+
+      const data = await response.json();
+      
+      // Create user object with proper structure  
+      const user = {
+        id: data.user.id,
+        first_name: data.user.firstName,
+        last_name: data.user.lastName,
+        email: data.user.email,
+        role: data.user.role,
+        balance: 0
+      };
+      
+      setUser(user);
+      localStorage.setItem('loyalty_user', JSON.stringify(user));
+      localStorage.setItem('loyalty_token', data.session_token);
+      setShowLoginPage(false);
+      setError(null);
+      
+      // Перенаправляем администратора в админ панель
+      setInitialRoute('/admin');
+      
+    } catch (err) {
+      console.error('Classic auth error:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTelegramAuth = async () => {
+    try {
+      setLoading(true);
+      
+      // Try Telegram authentication
+      if (tg?.initDataUnsafe?.user) {
+        await authenticateWithTelegram();
+      } else if (process.env.NODE_ENV === 'development') {
+        // Use mock auth in development
+        await authenticateWithMock();
+      } else {
+        throw new Error('Telegram WebApp не доступен');
+      }
+      
+      // Перенаправляем пользователей Telegram на главную страницу
+      setInitialRoute('/');
+      
+    } catch (err) {
+      console.error('Telegram auth error:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('loyalty_user');
     localStorage.removeItem('loyalty_token');
+    setShowLoginPage(true);
+    setInitialRoute('/'); // Сбрасываем маршрут на главную
     
     if (tg) {
       tg.close();
@@ -197,7 +284,6 @@ function App() {
 
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/me`, {
         headers: {
-          'x-telegram-id': user.id.toString(),
           'x-session-token': token
         }
       });
@@ -207,7 +293,12 @@ function App() {
         const updatedUser = { 
           ...user, 
           balance: userData.balance,
-          barPoints: userData.barPoints || {}
+          barPoints: userData.barPoints || {},
+          role: userData.role,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          username: userData.username,
+          phone: userData.phone
         };
         setUser(updatedUser);
         localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
@@ -251,29 +342,27 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (showLoginPage || !user) {
     return (
-      <div className="app-container login">
-        <div className="login-form">
-          <h1>🎯 Loyalty Program</h1>
-          <p>Welcome! Please authenticate to access your loyalty account.</p>
-          <button 
-            onClick={checkAuth}
-            className="login-button"
-          >
-            {tg ? 'Connect Telegram' : 'Login (Development)'}
-          </button>
-        </div>
-      </div>
+      <LoginPage 
+        onTelegramAuth={handleTelegramAuth}
+        onClassicAuth={authenticateWithClassic}
+        loading={loading}
+      />
     );
   }
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} onToggleRole={toggleRole} />} />
+        {/* Автоматическое перенаправление при первом входе */}
+        <Route path="/" element={
+          initialRoute !== '/' ? 
+            <Navigate to={initialRoute} replace /> : 
+            <MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} onToggleRole={toggleRole} />
+        } />
         <Route path="/bars/:barId" element={<BarLoyalty user={user} />} />
-        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} onRefreshPoints={refreshPoints} />} />
         {user.role === 'admin' && (
           <>
             <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
@@ -298,6 +387,8 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
   useEffect(() => {
     loadStats();
     loadBarsData();
+    // Автоматически обновляем баллы при загрузке страницы
+    onRefreshPoints();
   }, []);
 
   const loadBarsData = async () => {
@@ -321,8 +412,7 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
       const token = localStorage.getItem('loyalty_token');
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/user/stats`, {
         headers: {
-          'X-Telegram-ID': user.id.toString(),
-          'X-Session-Token': token
+          'x-session-token': token
         }
       });
       
@@ -500,9 +590,14 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
 }
 
 // Profile Page Component (New Design)
-function ProfilePage({ user, onLogout, onToggleRole }) {
+function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Автоматически обновляем баллы при загрузке профиля
+    onRefreshPoints();
+  }, []);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);

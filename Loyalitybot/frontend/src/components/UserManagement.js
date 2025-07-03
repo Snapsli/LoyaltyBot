@@ -28,7 +28,6 @@ const UserManagement = ({ user }) => {
       console.log('=== FETCHING USERS ===');
       const response = await fetch(`${config.apiUrl}/users`, {
         headers: {
-          'x-telegram-id': user.id.toString(),
           'x-session-token': localStorage.getItem('loyalty_token'),
         },
       });
@@ -56,7 +55,6 @@ const UserManagement = ({ user }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-telegram-id': user.id.toString(),
           'x-session-token': localStorage.getItem('loyalty_token'),
         },
         body: JSON.stringify({ 
@@ -83,7 +81,6 @@ const UserManagement = ({ user }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-telegram-id': user.id.toString(),
           'x-session-token': localStorage.getItem('loyalty_token'),
         },
         body: JSON.stringify({ isBlocked }),
