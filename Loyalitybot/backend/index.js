@@ -163,7 +163,9 @@ app.post('/api/auth/telegram', async (req, res) => {
       telegram_id: user.telegramId,
       session_token: sessionToken,
       user: {
-        id: user.telegramId,
+        _id: user._id,
+        id: user._id,
+        telegramId: user.telegramId,
         first_name: user.firstName,
         last_name: user.lastName,
         username: user.username,
@@ -808,6 +810,253 @@ app.post('/api/purchase/qr', requireAuth, async (req, res) => {
   }
 });
 
+// Points Settings Management (Admin only)
+
+// Get points settings for all bars
+app.get('/api/admin/points-settings', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Возвращаем настройки по умолчанию для всех баров
+    const defaultSettings = {
+      '1': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Культура
+      '2': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Caballitos
+      '3': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Fonoteca
+      '4': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }  // Tchaikovsky
+    };
+
+    // В будущем здесь можно добавить загрузку из БД
+    res.status(200).json(defaultSettings);
+  } catch (error) {
+    console.error('Error fetching points settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update points settings for specific bar
+app.put('/api/admin/points-settings/:barId', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { barId } = req.params;
+    const { pointsPerRuble, minPurchase, isActive } = req.body;
+
+    // Validate input
+    if (typeof pointsPerRuble !== 'number' || pointsPerRuble <= 0) {
+      return res.status(400).json({ error: 'pointsPerRuble must be a positive number' });
+    }
+
+    if (typeof minPurchase !== 'number' || minPurchase < 0) {
+      return res.status(400).json({ error: 'minPurchase must be a non-negative number' });
+    }
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ error: 'isActive must be a boolean' });
+    }
+
+    // Validate barId
+    const validBarIds = ['1', '2', '3', '4'];
+    if (!validBarIds.includes(barId)) {
+      return res.status(400).json({ error: 'Invalid bar ID' });
+    }
+
+    const newSettings = {
+      pointsPerRuble,
+      minPurchase,
+      isActive
+    };
+
+    // В будущем здесь можно добавить сохранение в БД
+    console.log(`Points settings updated for bar ${barId}:`, newSettings);
+
+    res.status(200).json({
+      message: `Points settings updated for bar ${barId}`,
+      barId,
+      settings: newSettings
+    });
+  } catch (error) {
+    console.error('Error updating points settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Calculate points for purchase (utility endpoint)
+app.post('/api/admin/calculate-points', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { barId, purchaseAmount } = req.body;
+
+    if (!barId || typeof purchaseAmount !== 'number' || purchaseAmount <= 0) {
+      return res.status(400).json({ error: 'Valid barId and purchaseAmount are required' });
+    }
+
+    // Получаем настройки для бара (пока используем значения по умолчанию)
+    const pointsPerRuble = 0.01; // 1 балл за 100 рублей
+    const minPurchase = 0;
+    const isActive = true;
+
+    if (!isActive) {
+      return res.status(200).json({
+        pointsEarned: 0,
+        message: 'Points earning is disabled for this bar'
+      });
+    }
+
+    if (purchaseAmount < minPurchase) {
+      return res.status(200).json({
+        pointsEarned: 0,
+        message: `Purchase amount is below minimum threshold of ${minPurchase} rubles`
+      });
+    }
+
+    const pointsEarned = Math.floor(purchaseAmount * pointsPerRuble);
+
+    res.status(200).json({
+      pointsEarned,
+      purchaseAmount,
+      pointsPerRuble,
+      minPurchase,
+      calculation: `${purchaseAmount} ₽ × ${pointsPerRuble} = ${pointsEarned} points`
+    });
+  } catch (error) {
+    console.error('Error calculating points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Development-only: Emulate purchase (for testing QR flow)
+app.post('/api/dev/emulate-purchase', requireAuth, async (req, res) => {
+  try {
+    // Только в development режиме (по умолчанию считаем development если не указано)
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    if (nodeEnv === 'production') {
+      return res.status(403).json({ error: 'This endpoint is only available in development mode' });
+    }
+
+    const { qrData } = req.body;
+
+    if (!qrData) {
+      return res.status(400).json({ error: 'QR data is required' });
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(qrData);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+
+    const { userId, barId, itemId, itemName, itemPrice, timestamp, expiresAt } = parsedData;
+
+    // Validate required fields
+    if (!userId || !barId || !itemId || !itemName || !itemPrice || !timestamp || !expiresAt) {
+      return res.status(400).json({ error: 'Invalid QR code data' });
+    }
+
+    // Check if QR code is expired
+    const now = Date.now();
+    if (now > expiresAt) {
+      return res.status(400).json({ error: 'QR code has expired' });
+    }
+
+    // Find user - в dev режиме пользователь может эмулировать свою покупку
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user is trying to emulate their own purchase
+    if (user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'You can only emulate your own purchases' });
+    }
+
+    // Check user has enough points for this bar
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    
+    if (currentPoints < itemPrice) {
+      return res.status(400).json({ 
+        error: 'Insufficient points',
+        currentPoints,
+        requiredPoints: itemPrice
+      });
+    }
+
+    // Deduct points
+    user.barPoints.set(barIdStr, currentPoints - itemPrice);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Покупка эмулирована: ${itemName}`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      purchase: {
+        itemName,
+        itemPrice,
+        barId,
+        timestamp: new Date(timestamp)
+      },
+      remainingPoints: currentPoints - itemPrice,
+      devNote: 'This was a development emulation'
+    });
+  } catch (error) {
+    console.error('Error emulating purchase:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// User stats endpoint
+app.get('/api/user/stats', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Инициализируем barPoints если не существует
+    if (!user.barPoints || !(user.barPoints instanceof Map)) {
+      user.barPoints = new Map();
+      user.barPoints.set('1', 0);
+      user.barPoints.set('2', 0);
+      user.barPoints.set('3', 0);
+      user.barPoints.set('4', 0);
+      await user.save();
+    }
+
+    // Получаем общую статистику пользователя
+    const barPointsMap = user.barPoints;
+    const barPointsObj = Object.fromEntries(barPointsMap);
+    const totalPoints = Object.values(barPointsObj).reduce((sum, points) => sum + (points || 0), 0);
+    const barsWithPoints = Object.keys(barPointsObj).filter(barId => (barPointsObj[barId] || 0) > 0).length;
+
+    res.status(200).json({
+      totalPoints,
+      barsWithPoints,
+      barPoints: barPointsObj,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
@@ -820,4 +1069,6 @@ app.get('/api/health', (req, res) => {
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     console.log(`Loyalty backend server is running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`MongoDB URI: ${process.env.MONGO_URI ? 'configured' : 'not configured'}`);
 }); 

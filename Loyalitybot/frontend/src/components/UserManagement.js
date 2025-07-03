@@ -224,7 +224,7 @@ const UserManagement = ({ user }) => {
             {expandedSection === 'manage' && (
               <ul className="accordion-content">
                 <li className="active">Пользователи</li>
-                <li>Баллы</li>
+                <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
                 <li>Настройки</li>
               </ul>
             )}

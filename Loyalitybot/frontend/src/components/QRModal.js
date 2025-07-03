@@ -5,6 +5,8 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
   const [qrData, setQrData] = useState('');
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300); // 5 минут
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [purchaseResult, setPurchaseResult] = useState(null);
 
   useEffect(() => {
     // Генерируем данные для QR-кода
@@ -52,6 +54,60 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const emulatePurchase = async () => {
+    try {
+      setIsProcessing(true);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/dev/emulate-purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-token': localStorage.getItem('loyalty_token')
+        },
+        body: JSON.stringify({
+          qrData: qrData
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setPurchaseResult({
+          success: true,
+          message: result.message,
+          remainingPoints: result.remainingPoints
+        });
+        
+        // Обновляем данные пользователя в localStorage если есть
+        const userData = JSON.parse(localStorage.getItem('loyalty_user') || '{}');
+        if (userData.barPoints) {
+          userData.barPoints[barId.toString()] = result.remainingPoints;
+          localStorage.setItem('loyalty_user', JSON.stringify(userData));
+        }
+        
+        // Закрываем модал через 3 секунды после успешной покупки
+        setTimeout(() => {
+          onClose();
+          // Перезагружаем страницу для обновления баллов
+          window.location.reload();
+        }, 3000);
+      } else {
+        setPurchaseResult({
+          success: false,
+          message: result.error || 'Ошибка при обработке покупки'
+        });
+      }
+    } catch (error) {
+      console.error('Error emulating purchase:', error);
+      setPurchaseResult({
+        success: false,
+        message: 'Ошибка соединения с сервером'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -124,9 +180,39 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
           </ol>
         </div>
 
+        {/* Результат покупки */}
+        {purchaseResult && (
+          <div className={`purchase-result ${purchaseResult.success ? 'success' : 'error'}`}>
+            <div className="result-icon">
+              {purchaseResult.success ? '✅' : '❌'}
+            </div>
+            <div className="result-message">{purchaseResult.message}</div>
+            {purchaseResult.success && (
+              <div className="remaining-points">
+                Осталось баллов: {purchaseResult.remainingPoints}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="qr-actions">
-          <button className="qr-cancel-btn" onClick={onClose}>
-            Отменить
+          {/* Кнопка эмуляции только в development */}
+          {process.env.NODE_ENV === 'development' && !purchaseResult && !isExpired && (
+            <button 
+              className="emulate-purchase-btn" 
+              onClick={emulatePurchase}
+              disabled={isProcessing}
+            >
+              {isProcessing ? 'Обрабатываем...' : '🤖 Эмулировать покупку'}
+            </button>
+          )}
+          
+          <button 
+            className="qr-cancel-btn" 
+            onClick={onClose}
+            disabled={isProcessing}
+          >
+            {purchaseResult?.success ? 'Закрыть' : 'Отменить'}
           </button>
         </div>
       </div>

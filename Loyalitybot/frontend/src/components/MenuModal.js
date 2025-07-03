@@ -27,8 +27,8 @@ const MenuModal = ({ items, currentBonuses, onClose, onItemClick, barName }) => 
         
         {items.length > 0 ? (
           <div className="menu-items-grid">
-            {items.map(item => (
-              <div key={item.id} className="menu-item-card">
+            {items.map((item, index) => (
+              <div key={item._id || item.id || index} className="menu-item-card">
                 <div className="menu-item-image-container">
                   <img 
                     src='/images/drinks/tapas-1.jpg.png'

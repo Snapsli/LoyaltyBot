@@ -3,9 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import './App.css';
 import './styles/LoginPage.css';
 import './styles/QRModal.css';
+import './styles/PointsManagement.css';
 import BarLoyalty from './components/BarLoyalty';
 import AdminBarDetail from './components/AdminBarDetail';
 import UserManagement from './components/UserManagement';
+import PointsManagement from './components/PointsManagement';
 import LoginPage from './components/LoginPage';
 
 // Telegram WebApp SDK integration
@@ -369,6 +371,7 @@ function App() {
             <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
             <Route path="/admin/bar/:barId" element={<AdminBarDetail user={user} />} />
             <Route path="/admin/users" element={<UserManagement user={user} />} />
+            <Route path="/admin/points" element={<PointsManagement user={user} onLogout={logout} onToggleRole={toggleRole} />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -888,7 +891,7 @@ function AdminPage({ user, onLogout, onToggleRole }) {
             {expandedSection === 'manage' && (
               <ul className="accordion-content">
                 <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
-                <li>Баллы</li>
+                <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
                 <li>Настройки</li>
               </ul>
             )}

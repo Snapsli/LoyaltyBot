@@ -279,4 +279,99 @@
     max-width: 200px !important;
     height: auto !important;
   }
+}
+
+/* Purchase Result Styles */
+.purchase-result {
+  margin: 20px 0;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid;
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+.purchase-result.success {
+  background: #e8f5e8;
+  border-color: #4CAF50;
+  color: #2e7d32;
+}
+
+.purchase-result.error {
+  background: #ffeaea;
+  border-color: #f44336;
+  color: #c62828;
+}
+
+.result-icon {
+  font-size: 2em;
+  margin-bottom: 10px;
+}
+
+.result-message {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.remaining-points {
+  font-size: 1em;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Emulate Purchase Button */
+.emulate-purchase-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.emulate-purchase-btn:hover:not(:disabled) {
+  background: #f57c00;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.emulate-purchase-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Animation for purchase result */
+@keyframes slideInFromBottom {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive updates for new elements */
+@media (max-width: 480px) {
+  .qr-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .emulate-purchase-btn {
+    margin-right: 0;
+    justify-content: center;
+    width: 100%;
+  }
 } 
