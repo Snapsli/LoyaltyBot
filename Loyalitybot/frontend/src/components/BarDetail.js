@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import MenuModal from './MenuModal';
+import QRModal from './QRModal';
 
 // Helper functions for bars and points (same as in App.js)
 const BAR_NAMES = {
@@ -23,6 +24,8 @@ const getTotalUserPoints = (user) => {
 
 const BarDetail = ({ bar, user, onBack }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [barData, setBarData] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
@@ -35,6 +38,17 @@ const BarDetail = ({ bar, user, onBack }) => {
 
   const handleSpendBonuses = () => {
     setShowMenu(true);
+  };
+
+  const handleItemClick = (item) => {
+    setSelectedItem(item);
+    setShowMenu(false);
+    setShowQRModal(true);
+  };
+
+  const handleCloseQR = () => {
+    setShowQRModal(false);
+    setSelectedItem(null);
   };
 
   React.useEffect(() => {
@@ -184,11 +198,20 @@ const BarDetail = ({ bar, user, onBack }) => {
           items={menuItems}
           currentBonuses={getCurrentBarPoints()}
           onClose={() => setShowMenu(false)}
-          onItemClick={(item) => {
-            // TODO: Реализовать покупку товара
-            console.log('Purchasing item:', item);
-          }}
+          onItemClick={handleItemClick}
           barName={bar.name}
+        />
+      )}
+
+      {showQRModal && selectedItem && (
+        <QRModal
+          userId={user._id || user.id}
+          barId={bar.id}
+          barName={bar.name}
+          itemId={selectedItem._id || selectedItem.id}
+          itemName={selectedItem.name}
+          itemPrice={selectedItem.price}
+          onClose={handleCloseQR}
         />
       )}
     </div>

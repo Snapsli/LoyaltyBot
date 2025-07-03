@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.css';
 import './styles/LoginPage.css';
+import './styles/QRModal.css';
 import BarLoyalty from './components/BarLoyalty';
 import AdminBarDetail from './components/AdminBarDetail';
 import UserManagement from './components/UserManagement';

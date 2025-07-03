@@ -731,6 +731,83 @@ app.delete('/api/menu/:itemId', requireAuth, async (req, res) => {
   }
 });
 
+// Process QR purchase (Admin only - for barman scanning)
+app.post('/api/purchase/qr', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { qrData } = req.body;
+
+    if (!qrData) {
+      return res.status(400).json({ error: 'QR data is required' });
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(qrData);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+
+    const { userId, barId, itemId, itemName, itemPrice, timestamp, expiresAt } = parsedData;
+
+    // Validate required fields
+    if (!userId || !barId || !itemId || !itemName || !itemPrice || !timestamp || !expiresAt) {
+      return res.status(400).json({ error: 'Invalid QR code data' });
+    }
+
+    // Check if QR code is expired
+    const now = Date.now();
+    if (now > expiresAt) {
+      return res.status(400).json({ error: 'QR code has expired' });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check user has enough points for this bar
+    const barIdStr = String(barId);
+    const currentPoints = user.barPoints.get(barIdStr) || 0;
+    
+    if (currentPoints < itemPrice) {
+      return res.status(400).json({ 
+        error: 'Insufficient points',
+        currentPoints,
+        requiredPoints: itemPrice
+      });
+    }
+
+    // Deduct points
+    user.barPoints.set(barIdStr, currentPoints - itemPrice);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Purchase successful: ${itemName}`,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      purchase: {
+        itemName,
+        itemPrice,
+        barId,
+        timestamp: new Date(timestamp)
+      },
+      remainingPoints: currentPoints - itemPrice
+    });
+  } catch (error) {
+    console.error('Error processing QR purchase:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
