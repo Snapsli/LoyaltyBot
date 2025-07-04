@@ -1,0 +1,123 @@
+/* This file will contain the styles for the QR Scanner component. */ 
+
+.qr-scanner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.qr-scanner-content {
+  background-color: #2c2c2c;
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  color: white;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.qr-scanner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.qr-scanner-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+
+.bar-selection-container, .scanner-container, .confirmation-container {
+  text-align: center;
+}
+
+.bar-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.bar-select-button {
+  padding: 20px;
+  background-color: #3a3a3a;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  font-size: 1em;
+}
+
+.bar-select-button:hover {
+  background-color: #4a4a4a;
+  transform: translateY(-2px);
+}
+
+.scanner-instruction {
+  margin-top: 15px;
+  color: #aaa;
+}
+
+#qr-reader {
+    border: 2px solid #555;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.purchase-amount-input {
+  margin: 15px 0;
+}
+
+.purchase-amount-input input {
+  width: 80%;
+  padding: 10px;
+  background-color: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 5px;
+  color: white;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+.inline-error-message {
+  color: #ff8a80; /* Light red */
+  margin-top: -10px;
+  margin-bottom: 10px;
+}
+
+.confirm-button {
+    margin-top: 20px;
+    padding: 12px 25px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s;
+}
+
+.confirm-button:hover {
+    background-color: #45a049;
+} 

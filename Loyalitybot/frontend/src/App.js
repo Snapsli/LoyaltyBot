@@ -9,6 +9,7 @@ import AdminBarDetail from './components/AdminBarDetail';
 import UserManagement from './components/UserManagement';
 import PointsManagement from './components/PointsManagement';
 import LoginPage from './components/LoginPage';
+import QRScanner from './components/QRScanner';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -763,6 +764,7 @@ function AdminPage({ user, onLogout, onToggleRole }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const [barsData, setBarsData] = useState({});
   const navigate = useNavigate();
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const loadBarsData = async () => {
     try {
@@ -820,6 +822,11 @@ function AdminPage({ user, onLogout, onToggleRole }) {
     }
   ];
 
+  const barsArray = Object.values(barsData).map(bar => ({
+    ...bar,
+    id: bar.barId // Ensure the id property is set for the scanner
+  }));
+
   const handleBarClick = (bar) => {
     navigate(`/admin/bar/${bar.id}`);
   };
@@ -861,7 +868,14 @@ function AdminPage({ user, onLogout, onToggleRole }) {
           </div>
           <h2 className="sidebar-title">Панель администратора</h2>
           
-
+          <div className="accordion-section">
+            <button 
+              className="accordion-button"
+              onClick={() => setIsScannerOpen(true)}
+            >
+              <span>📷 Сканер</span>
+            </button>
+          </div>
 
           <div className="accordion-section">
             <button 
@@ -928,7 +942,12 @@ function AdminPage({ user, onLogout, onToggleRole }) {
         </div>
       </div>
 
-
+      {isScannerOpen && (
+        <QRScanner
+          bars={barsArray}
+          onClose={() => setIsScannerOpen(false)}
+        />
+      )}
     </div>
   );
 }
