@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import PointsManagement from './PointsManagement';
+import UserManagement from './UserManagement';
+import '../styles/AdminBarDetail.css';
 
 const AdminBarDetail = ({ user }) => {
   const { barId } = useParams();
@@ -16,6 +19,8 @@ const AdminBarDetail = ({ user }) => {
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newBarImage, setNewBarImage] = useState(null);
   const [currentBarImage, setCurrentBarImage] = useState('');
+  const [bar, setBar] = useState(null);
+  const [error, setError] = useState(null);
   
   // Форма добавления меню
   const [newMenuItem, setNewMenuItem] = useState({
@@ -55,8 +60,6 @@ const AdminBarDetail = ({ user }) => {
     }
   ], []);
 
-  const bar = bars.find(b => b.id === parseInt(barId));
-  
   React.useEffect(() => {
     // Находим бар внутри эффекта чтобы избежать stale closure
     const currentBar = bars.find(b => b.id === parseInt(barId));
@@ -80,6 +83,7 @@ const AdminBarDetail = ({ user }) => {
           }
           setCurrentBarImage(barData.image || currentBar?.image || '');
           setMenuItems(barData.menu || []);
+          setBar(barData);
         } else if (isMounted) {
           // Если бар не найден в БД, используем дефолтное описание
           const desc = currentBar?.description || '';
@@ -88,6 +92,7 @@ const AdminBarDetail = ({ user }) => {
             setOriginalDescription(desc);
           }
           setCurrentBarImage(currentBar?.image || '');
+          setBar(currentBar);
         }
       } catch (error) {
         console.error('Error loading bar data:', error);
@@ -98,6 +103,7 @@ const AdminBarDetail = ({ user }) => {
             setOriginalDescription(desc);
           }
           setCurrentBarImage(currentBar?.image || '');
+          setBar(currentBar);
         }
       } finally {
         if (isMounted) {
@@ -111,7 +117,7 @@ const AdminBarDetail = ({ user }) => {
     return () => {
       isMounted = false;
     };
-  }, [barId]); // Убираем bars из зависимостей, так как они теперь в useMemo
+  }, [barId, bars, isEditingDescription, justSaved]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -280,211 +286,217 @@ const AdminBarDetail = ({ user }) => {
     }
   };
 
-  if (!bar) {
-    return <div>Бар не найден</div>;
-  }
+  if (loading) return <div className="loading">Загрузка...</div>;
+  if (error) return <div className="error">{error}</div>;
+  if (!bar) return <div>Бар не найден.</div>;
 
   return (
-    <div className="main-container">
-      {/* Top Navigation */}
-      <div className="top-navigation">
-        <div className="user-info-top">
-          <span>Админ: {user.first_name}</span>
-          <span>Редактирование</span>
-        </div>
-        <div className="nav-buttons">
-          <button onClick={() => navigate('/admin')} className="profile-btn">
-            ← Назад к списку
-          </button>
-        </div>
-      </div>
-
-      <div className="main-container-content">
-        {/* Sidebar */}
-        <div className="loyalty-sidebar admin-sidebar">
-          <div className="sidebar-divider"></div>
-          <div className="loyalty-logo">
-            <div className="logo-circle">
-              <img src="/images/logo.png" alt="Logo" />
-            </div>
+    <div className="admin-bar-detail-container">
+      <header className="admin-bar-detail-header">
+        <h1>{bar.name}</h1>
+        <p>Адрес: {bar.address}</p>
+      </header>
+      
+      <div className="main-container">
+        {/* Top Navigation */}
+        <div className="top-navigation">
+          <div className="user-info-top">
+            <span>Админ: {user.first_name}</span>
+            <span>Редактирование</span>
           </div>
-          <h2 className="sidebar-title">Панель администратора</h2>
-          
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('stats')}
-            >
-              <span>Статистика</span>
-              <span className="accordion-icon">{expandedSection === 'stats' ? '▼' : '▶'}</span>
+          <div className="nav-buttons">
+            <button onClick={() => navigate('/admin')} className="profile-btn">
+              ← Назад к списку
             </button>
-            {expandedSection === 'stats' && (
-              <ul className="accordion-content">
-                <li>Общая статистика</li>
-                <li>По барам</li>
-                <li>По пользователям</li>
-              </ul>
-            )}
           </div>
-
-          <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'manage' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('manage')}
-            >
-              <span>Управление</span>
-              <span className="accordion-icon">{expandedSection === 'manage' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'manage' && (
-              <ul className="accordion-content">
-                <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
-                <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
-                <li>Настройки</li>
-              </ul>
-            )}
-          </div>
-
-
         </div>
 
-        {/* Main Content */}
-        <div className="main-content">
-          <h1 className="bar-detail-page-title">Редактирование: {bar.name}</h1>
-          
-          <div className="bar-detail-container">
-            <div className="bar-detail-card">
-              <div className="bar-detail-image-container">
-                <img 
-                  src={currentBarImage || bar.image} 
-                  alt={bar.name}
-                  className="bar-detail-card-image"
-                />
+        <div className="main-container-content">
+          {/* Sidebar */}
+          <div className="loyalty-sidebar admin-sidebar">
+            <div className="sidebar-divider"></div>
+            <div className="loyalty-logo">
+              <div className="logo-circle">
+                <img src="/images/logo.png" alt="Logo" />
               </div>
-              
-              {/* Редактирование фотографии */}
-              <div className="admin-image-section">
-                <div className="admin-section-header">
-                  <h3>Фотография бара</h3>
-                  {!isEditingImage && (
-                    <button 
-                      className="edit-btn"
-                      onClick={() => setIsEditingImage(true)}
-                    >
-                      📷 Изменить фото
-                    </button>
-                  )}
+            </div>
+            <h2 className="sidebar-title">Панель администратора</h2>
+            
+            <div className="accordion-section">
+              <button 
+                className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
+                onClick={() => toggleSection('stats')}
+              >
+                <span>Статистика</span>
+                <span className="accordion-icon">{expandedSection === 'stats' ? '▼' : '▶'}</span>
+              </button>
+              {expandedSection === 'stats' && (
+                <ul className="accordion-content">
+                  <li>Общая статистика</li>
+                  <li>По барам</li>
+                  <li>По пользователям</li>
+                </ul>
+              )}
+            </div>
+
+            <div className="accordion-section">
+              <button 
+                className={`accordion-button ${expandedSection === 'manage' ? 'expanded' : ''}`}
+                onClick={() => toggleSection('manage')}
+              >
+                <span>Управление</span>
+                <span className="accordion-icon">{expandedSection === 'manage' ? '▼' : '▶'}</span>
+              </button>
+              {expandedSection === 'manage' && (
+                <ul className="accordion-content">
+                  <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
+                  <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
+                  <li>Настройки</li>
+                </ul>
+              )}
+            </div>
+
+          </div>
+
+          {/* Main Content */}
+          <div className="main-content">
+            <h1 className="bar-detail-page-title">Редактирование: {bar.name}</h1>
+            
+            <div className="bar-detail-container">
+              <div className="bar-detail-card">
+                <div className="bar-detail-image-container">
+                  <img 
+                    src={currentBarImage || bar.image} 
+                    alt={bar.name}
+                    className="bar-detail-card-image"
+                  />
                 </div>
                 
-                {isEditingImage && (
-                  <div className="edit-image-form">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleBarImageChange}
-                      className="image-input"
-                    />
-                    <div className="edit-actions">
-                      <button 
-                        className="save-btn" 
-                        onClick={handleSaveBarImage}
-                        disabled={saving || !newBarImage}
-                      >
-                        {saving ? 'Сохраняется...' : 'Сохранить'}
-                      </button>
-                      <button 
-                        className="cancel-btn" 
-                        onClick={() => {
-                          setIsEditingImage(false);
-                          setNewBarImage(null);
-                        }}
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="bar-detail-info">
-                <p className="bar-detail-address">{bar.address}</p>
-                
-                {/* Редактируемое описание */}
-                <div className="bar-detail-description">
+                {/* Редактирование фотографии */}
+                <div className="admin-image-section">
                   <div className="admin-section-header">
-                    <h3>Описание бара</h3>
-                    {!isEditingDescription && (
+                    <h3>Фотография бара</h3>
+                    {!isEditingImage && (
                       <button 
                         className="edit-btn"
-                        onClick={() => setIsEditingDescription(true)}
+                        onClick={() => setIsEditingImage(true)}
                       >
-                        ✏️ Редактировать
+                        📷 Изменить фото
                       </button>
                     )}
                   </div>
                   
-                  {isEditingDescription ? (
-                    <div className="edit-description">
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Введите описание бара..."
-                        rows={4}
+                  {isEditingImage && (
+                    <div className="edit-image-form">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBarImageChange}
+                        className="image-input"
                       />
                       <div className="edit-actions">
                         <button 
                           className="save-btn" 
-                          onClick={handleSaveDescription}
-                          disabled={saving}
+                          onClick={handleSaveBarImage}
+                          disabled={saving || !newBarImage}
                         >
                           {saving ? 'Сохраняется...' : 'Сохранить'}
                         </button>
                         <button 
                           className="cancel-btn" 
                           onClick={() => {
-                            setDescription(originalDescription);
-                            setIsEditingDescription(false);
+                            setIsEditingImage(false);
+                            setNewBarImage(null);
                           }}
                         >
                           Отмена
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <p>{description}</p>
                   )}
                 </div>
-
-                {/* Управление меню */}
-                <div className="admin-menu-section">
-                  <div className="admin-section-header">
-                    <h3>Меню ({menuItems.length} блюд)</h3>
-                    <button 
-                      className="add-btn"
-                      onClick={() => setShowAddMenu(true)}
-                    >
-                      ➕ Добавить блюдо
-                    </button>
-                  </div>
+                <div className="bar-detail-info">
+                  <p className="bar-detail-address">{bar.address}</p>
                   
-                  {menuItems.length > 0 && (
-                    <div className="menu-items-preview">
-                      {menuItems.map(item => (
-                        <div key={item._id || item.id} className="menu-item-preview">
-                          <img src={item.image} alt={item.name} />
-                          <div className="menu-item-info">
-                            <strong>{item.name}</strong>
-                            <span>{item.price} ₽</span>
-                          </div>
+                  {/* Редактируемое описание */}
+                  <div className="bar-detail-description">
+                    <div className="admin-section-header">
+                      <h3>Описание бара</h3>
+                      {!isEditingDescription && (
+                        <button 
+                          className="edit-btn"
+                          onClick={() => setIsEditingDescription(true)}
+                        >
+                          ✏️ Редактировать
+                        </button>
+                      )}
+                    </div>
+                    
+                    {isEditingDescription ? (
+                      <div className="edit-description">
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Введите описание бара..."
+                          rows={4}
+                        />
+                        <div className="edit-actions">
                           <button 
-                            className="delete-item-btn"
-                            onClick={() => handleDeleteMenuItem(item._id || item.id)}
+                            className="save-btn" 
+                            onClick={handleSaveDescription}
                             disabled={saving}
                           >
-                            🗑️
+                            {saving ? 'Сохраняется...' : 'Сохранить'}
+                          </button>
+                          <button 
+                            className="cancel-btn" 
+                            onClick={() => {
+                              setDescription(originalDescription);
+                              setIsEditingDescription(false);
+                            }}
+                          >
+                            Отмена
                           </button>
                         </div>
-                      ))}
+                      </div>
+                    ) : (
+                      <p>{description}</p>
+                    )}
+                  </div>
+
+                  {/* Управление меню */}
+                  <div className="admin-menu-section">
+                    <div className="admin-section-header">
+                      <h3>Меню ({menuItems.length} блюд)</h3>
+                      <button 
+                        className="add-btn"
+                        onClick={() => setShowAddMenu(true)}
+                      >
+                        ➕ Добавить блюдо
+                      </button>
                     </div>
-                  )}
+                    
+                    {menuItems.length > 0 && (
+                      <div className="menu-items-preview">
+                        {menuItems.map(item => (
+                          <div key={item._id || item.id} className="menu-item-preview">
+                            <img src={item.image} alt={item.name} />
+                            <div className="menu-item-info">
+                              <strong>{item.name}</strong>
+                              <span>{item.price} ₽</span>
+                            </div>
+                            <button 
+                              className="delete-item-btn"
+                              onClick={() => handleDeleteMenuItem(item._id || item.id)}
+                              disabled={saving}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

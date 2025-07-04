@@ -1,0 +1,211 @@
+.qr-scanner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.qr-scanner-content {
+    background: #2c2c2c;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    color: #f0f0f0;
+    border: 1px solid #444;
+}
+
+.qr-scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 15px;
+}
+
+.qr-scanner-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: #00aaff;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-button:hover {
+    color: #fff;
+}
+
+.scanner-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #555;
+}
+
+.scanner-instruction {
+    margin-top: 15px;
+    font-size: 1em;
+    color: #ccc;
+}
+
+.error-message {
+    margin-top: 20px;
+    color: #ff4d4d;
+    background-color: rgba(255, 77, 77, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ff4d4d;
+}
+
+/* Стили для отображения результата */
+.scan-result-container {
+    padding: 20px;
+    border-top: 1px solid #444;
+    margin-top: 20px;
+}
+
+.scan-result-container h3 {
+    color: #00aaff;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.scan-result-info p {
+    margin: 8px 0;
+    font-size: 1.1em;
+}
+
+.scan-result-info strong {
+    color: #ccc;
+}
+
+.scan-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scan-actions input {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #f0f0f0;
+    font-size: 1em;
+}
+
+.confirm-button, .rescan-button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.confirm-button {
+    background-color: #28a745;
+    color: white;
+}
+
+.confirm-button:hover {
+    background-color: #218838;
+}
+
+.confirm-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.rescan-button {
+    background-color: #6c757d;
+    color: white;
+}
+
+.rescan-button:hover {
+    background-color: #5a6268;
+}
+
+.final-result {
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.final-result.success {
+    background-color: rgba(40, 167, 69, 0.15);
+    border: 1px solid #28a745;
+    color: #28a745;
+}
+
+.final-result.error {
+    background-color: rgba(255, 77, 77, 0.15);
+    border: 1px solid #ff4d4d;
+    color: #ff4d4d;
+}
+
+/* Стили для выбора бара */
+.bar-selection-container {
+    padding: 20px 0;
+    text-align: center;
+}
+
+.bar-selection-container h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #f0f0f0;
+}
+
+.bar-selection-container .bar-select {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 20px;
+    display: block;
+}
+
+/* Стили для выбора бара кнопками */
+.bar-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.bar-select-button {
+    background-color: #3a3a3c;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    padding: 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: center;
+    transition: background-color 0.2s, transform 0.1s;
+    width: 100%;
+}
+
+.bar-select-button:hover {
+    background-color: #4f4f52;
+    transform: translateY(-2px);
+} 

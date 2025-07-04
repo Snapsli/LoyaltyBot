@@ -68,6 +68,19 @@ mongoose.connect(process.env.MONGO_URI)
     })
     .catch(err => console.error('MongoDB connection error:', err));    
 
+// Определяем схему и модель транзакции прямо здесь
+const transactionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  barId: { type: String, required: true },
+  type: { type: String, enum: ['earn', 'spend'], required: true },
+  points: Number, // для spend
+  amount: Number, // сумма покупки для earn
+  pointsEarned: Number, // сколько баллов начислено для earn
+  itemName: String, // для spend
+  timestamp: { type: Date, default: Date.now }
+});
+const Transaction = mongoose.model('Transaction', transactionSchema);
+
 // Authentication Middleware
 const requireAuth = async (req, res, next) => {
   const sessionToken = req.headers['x-session-token'];
@@ -94,6 +107,20 @@ const requireAuth = async (req, res, next) => {
     console.error('Authentication error:', error);
     res.status(401).json({ error: 'Request is not authorized' });
   }
+};
+
+// Middleware for admin authentication
+const adminRequired = (req, res, next) => {
+  const token = req.headers['x-session-token'];
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  // In a real application, this would be more complex
+  if (token !== process.env.ADMIN_SESSION_TOKEN) {
+    console.log('Invalid admin token:', token, 'expected:', process.env.ADMIN_SESSION_TOKEN);
+    return res.status(403).json({ error: 'Invalid admin token' });
+  }
+  next();
 };
 
 // Image upload endpoint
@@ -1356,6 +1383,105 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'loyalty-backend'
   });
+});
+
+// Получение имени пользователя
+app.get('/api/user-info/:userId', adminRequired, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (user) {
+            res.json({ name: user.name });
+        } else {
+            res.status(404).json({ error: 'User not found' });
+        }
+    } catch (e) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Ручка для админа: обработка списания
+app.post('/api/admin/process-spend', adminRequired, async (req, res) => {
+  const { qrData } = req.body;
+
+  try {
+    const user = await User.findById(qrData.userId);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    
+    const currentPoints = user.barPoints.get(qrData.barId.toString()) || 0;
+    if (currentPoints < qrData.itemPrice) {
+      return res.status(400).json({ error: 'Недостаточно баллов у пользователя' });
+    }
+
+    const newPoints = currentPoints - qrData.itemPrice;
+    user.barPoints.set(qrData.barId.toString(), newPoints);
+
+    const transaction = new Transaction({
+        userId: user._id,
+        barId: qrData.barId,
+        type: 'spend',
+        points: qrData.itemPrice,
+        itemName: qrData.itemName
+    });
+
+    await transaction.save();
+    user.transactions.push(transaction._id);
+    await user.save();
+
+    res.json({ message: `Списание успешно. ${qrData.itemName} за ${qrData.itemPrice} баллов. Остаток: ${newPoints}` });
+
+  } catch (error) {
+    console.error('Ошибка при списании:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Ручка для админа: обработка начисления
+app.post('/api/admin/process-earn', adminRequired, async (req, res) => {
+    const { qrData, purchaseAmount } = req.body;
+    
+    try {
+        const user = await User.findById(qrData.userId);
+        if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+        
+        const barConfig = await Bar.findById(qrData.barId);
+        if (!barConfig || !barConfig.pointsSettings.isActive) {
+            return res.status(400).json({ error: 'Программа лояльности для этого заведения неактивна' });
+        }
+        
+        const { pointsPerRuble, minPurchase } = barConfig.pointsSettings;
+        if (purchaseAmount < minPurchase) {
+            return res.status(400).json({ error: `Минимальная сумма для начисления: ${minPurchase} руб.` });
+        }
+
+        const pointsEarned = Math.floor(purchaseAmount * pointsPerRuble);
+        if (pointsEarned <= 0) {
+            return res.status(400).json({ error: 'Сумма слишком мала для начисления баллов' });
+        }
+
+        const currentPoints = user.barPoints.get(qrData.barId.toString()) || 0;
+        const newTotalPoints = currentPoints + pointsEarned;
+        user.barPoints.set(qrData.barId.toString(), newTotalPoints);
+
+        const transaction = new Transaction({
+            userId: user._id,
+            barId: qrData.barId,
+            type: 'earn',
+            amount: purchaseAmount,
+            pointsEarned: pointsEarned
+        });
+        
+        await transaction.save();
+        user.transactions.push(transaction._id);
+        await user.save();
+        
+        res.json({ 
+            message: `Начислено ${pointsEarned} баллов за покупку на ${purchaseAmount} руб. Новый баланс: ${newTotalPoints}` 
+        });
+
+    } catch (error) {
+        console.error('Ошибка при начислении:', error);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
 });
 
 const PORT = process.env.PORT || 8000;

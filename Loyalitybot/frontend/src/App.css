@@ -3500,3 +3500,49 @@ div.main-container {
     font-size: 0.8rem;
   }
 }
+
+.admin-sidebar .accordion-content li {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #3a3a3c;
+}
+
+.admin-sidebar .accordion-content li:last-child {
+  border-bottom: none;
+}
+
+.admin-sidebar .accordion-content li:hover {
+  background-color: #3a3a3c;
+}
+
+/* Стили для контролов сканера */
+.scanner-controls {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.bar-select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #f0f0f0;
+  font-size: 1em;
+}
+
+.scanner-controls .scan-qr-button {
+  width: 100%;
+  justify-content: center;
+  padding: 12px;
+  font-size: 1em;
+}
+
+.scanner-controls .scan-qr-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  transform: none;
+}

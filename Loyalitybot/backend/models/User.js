@@ -49,6 +49,11 @@ const userSchema = new mongoose.Schema({
     
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
+
+    transactions: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Transaction' 
+    }]
 });
 
 // Auto-updating of `updatedAt` at `findOneAndUpdate`

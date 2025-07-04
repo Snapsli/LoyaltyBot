@@ -9,6 +9,7 @@ import AdminBarDetail from './components/AdminBarDetail';
 import UserManagement from './components/UserManagement';
 import PointsManagement from './components/PointsManagement';
 import LoginPage from './components/LoginPage';
+import QRScanner from './components/QRScanner';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -760,69 +761,41 @@ function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
 
 // Admin Page Component (New Design)
 function AdminPage({ user, onLogout, onToggleRole }) {
-  const [expandedSection, setExpandedSection] = useState(null);
-  const [barsData, setBarsData] = useState({});
+  const [bars, setBars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(null);
+
+  useEffect(() => {
+    loadBarsData();
+  }, []);
 
   const loadBarsData = async () => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars`);
       if (response.ok) {
         const barsArray = await response.json();
-        const barsMap = {};
-        barsArray.forEach(bar => {
-          barsMap[bar.barId] = bar;
-        });
-        setBarsData(barsMap);
+        setBars(barsArray);
       }
     } catch (error) {
       console.error('Error loading bars data:', error);
+    } finally {
+      setLoading(false);
     }
   };
-
-  React.useEffect(() => {
-    loadBarsData();
-  }, []);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  // Создаем массив баров с обновленными данными из БД
-  const bars = [
-    {
-      id: 1,
-      name: "Культура",
-      address: "Ульяновск, Ленина, 15",
-      image: barsData[1]?.image || "/images/bars/kultura.jpg",
-      description: "Уютное место с атмосферой искусства и культуры"
-    },
-    {
-      id: 2,
-      name: "Caballitos Mexican Bar",
-      address: "Ульяновск, Дворцовая, 8", 
-      image: barsData[2]?.image || "/images/bars/cabalitos.jpg",
-      description: "Мексиканский бар с аутентичными коктейлями"
-    },
-    {
-      id: 3,
-      name: "Fonoteca - Listening Bar",
-      address: "Ульяновск, Карла Маркса, 20",
-      image: barsData[3]?.image || "/images/bars/fonoteka.jpg",
-      description: "Музыкальный бар для истинных меломанов"
-    },
-    {
-      id: 4,
-      name: "Tchaikovsky",
-      address: "Ульяновск, Советская, 25",
-      image: barsData[4]?.image || "/images/bars/tchaykovsky.jpg",
-      description: "Классический бар с изысканной атмосферой"
-    }
-  ];
-
   const handleBarClick = (bar) => {
-    navigate(`/admin/bar/${bar.id}`);
+    navigate(`/admin/bar/${bar._id}`);
   };
+
+  if (loading) return <div className="loading">Загрузка...</div>;
+  if (error) return <div className="error-message">{error}</div>;
 
   return (
     <div className="main-container">
@@ -861,74 +834,90 @@ function AdminPage({ user, onLogout, onToggleRole }) {
           </div>
           <h2 className="sidebar-title">Панель администратора</h2>
           
-
-
+          {/* Секция сканера */}
           <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('stats')}
-            >
-              <span>Статистика</span>
-              <span className="accordion-icon">{expandedSection === 'stats' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'stats' && (
-              <ul className="accordion-content">
-                <li>Общая статистика</li>
-                <li>По барам</li>
-                <li>По пользователям</li>
-              </ul>
-            )}
+              <button 
+                  className="accordion-button"
+                  onClick={() => setIsScannerOpen(true)}
+              >
+                  <span>📷 Сканер QR-кодов</span>
+              </button>
           </div>
 
+          {/* Секция "Статистика" */}
           <div className="accordion-section">
-            <button 
-              className={`accordion-button ${expandedSection === 'manage' ? 'expanded' : ''}`}
-              onClick={() => toggleSection('manage')}
-            >
-              <span>Управление</span>
-              <span className="accordion-icon">{expandedSection === 'manage' ? '▼' : '▶'}</span>
-            </button>
-            {expandedSection === 'manage' && (
-              <ul className="accordion-content">
-                <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
-                <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
-                <li>Настройки</li>
-              </ul>
-            )}
+              <button 
+                  className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
+                  onClick={() => toggleSection('stats')}
+              >
+                  <span>Статистика</span>
+                  <span className="accordion-icon">{expandedSection === 'stats' ? '▼' : '▶'}</span>
+              </button>
+              {expandedSection === 'stats' && (
+                  <ul className="accordion-content">
+                      <li>Общая статистика</li>
+                      <li>По барам</li>
+                      <li>По пользователям</li>
+                  </ul>
+              )}
+          </div>
+
+          {/* Секция "Управление" */}
+          <div className="accordion-section">
+              <button 
+                  className={`accordion-button ${expandedSection === 'manage' ? 'expanded' : ''}`}
+                  onClick={() => toggleSection('manage')}
+              >
+                  <span>Управление</span>
+                  <span className="accordion-icon">{expandedSection === 'manage' ? '▼' : '▶'}</span>
+              </button>
+              {expandedSection === 'manage' && (
+                  <ul className="accordion-content">
+                      <li onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }}>Пользователи</li>
+                      <li onClick={() => navigate('/admin/points')} style={{ cursor: 'pointer' }}>Баллы</li>
+                      <li>Настройки</li>
+                  </ul>
+              )}
           </div>
         </div>
-
-        {/* Main Content - Admin Panel */}
+        
+        {/* Main Content (ВОЗВРАЩАЕМ КАК БЫЛО) */}
         <div className="main-content">
-          <h1 className="page-title">Управление барами</h1>
-          
-          <div className="bars-grid">
-            {bars.map(bar => (
-              <div 
-                key={bar.id} 
-                className="bar-card admin-bar-card" 
-                onClick={() => handleBarClick(bar)}
-              >
-                <div className="bar-image-container">
-                  <img src={bar.image} alt={bar.name} className="bar-image" />
-                  <div className="admin-overlay">
-                    <div className="admin-overlay-content">
-                      <span>⚙️</span>
-                      <p>Редактировать</p>
+           <h1 className="page-title">Управление барами</h1>
+           
+           <div className="bars-grid">
+                {bars.map(bar => (
+                  <div 
+                    key={bar._id} 
+                    className="bar-card"
+                    onClick={() => handleBarClick(bar)}
+                  >
+                    <div className="bar-image-container">
+                        <img src={bar.image || '/images/bars/placeholder.svg'} alt={bar.name} className="bar-image" />
+                        <div className="admin-overlay">
+                            <div className="admin-overlay-content">
+                                <span>⚙️</span>
+                                <p>Редактировать</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bar-info">
+                        <h3 className="bar-name">{bar.name}</h3>
+                        <p className="bar-address">{bar.address}</p>
                     </div>
                   </div>
-                </div>
-                <div className="bar-info">
-                  <h3 className="bar-name">{bar.name}</h3>
-                  <p className="bar-address">{bar.address}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+                ))}
+            </div>
+         </div>
+
       </div>
 
-
+      {isScannerOpen && (
+        <QRScanner 
+          bars={bars}
+          onClose={() => setIsScannerOpen(false)} 
+        />
+      )}
     </div>
   );
 }
