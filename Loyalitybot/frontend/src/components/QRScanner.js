@@ -1,121 +1,91 @@
 // This file will contain the QR Scanner component.
-import React, { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import React, { useState, useEffect } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import '../styles/QRScanner.css';
 
 const QRScanner = ({ bars, onClose }) => {
-  const [step, setStep] = useState(2); // Start directly at step 2 (scanning)
+  const [step, setStep] = useState(2);
   const [scannedData, setScannedData] = useState(null);
   const [error, setError] = useState(null);
   const [userName, setUserName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [processResult, setProcessResult] = useState(null);
-
-  const html5QrCodeRef = useRef(null);
-  const readerId = "qr-reader"; // ID for the scanner element
+  const [scanner, setScanner] = useState(null);
 
   const fetchUserName = async (userId) => {
     try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/user-info/${userId}`, {
-            headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
-        });
-        if (response.ok) {
-            const data = await response.json();
-            setUserName(data.name);
-        } else {
-            setUserName('Неизвестный пользователь');
-        }
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/user-info/${userId}`, {
+        headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserName(data.name);
+      } else {
+        setUserName('Неизвестный пользователь');
+      }
     } catch (e) {
-        setUserName('Не удалось загрузить имя');
+      setUserName('Не удалось загрузить имя');
     }
   };
 
-  const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-      try {
-        const parsedData = JSON.parse(decodedText);
-        
-        if (!parsedData.userId || !parsedData.barId || !parsedData.type) {
-            throw new Error("Неверный формат QR-кода.");
-        }
-
-        if (parsedData.expiresAt && Date.now() > parsedData.expiresAt) {
-            throw new Error("Срок действия QR-кода истек.");
-        }
-
-        fetchUserName(parsedData.userId);
-        setScannedData(parsedData);
-        setError(null);
-        setStep(3); // Move to confirmation step
-
-      } catch (e) {
-        setError(e.message || "Ошибка чтения QR-кода. Это не код системы лояльности.");
-        setStep(2); // Go back to scanning
-      }
-  };
-
   useEffect(() => {
-    // Create instance on mount
-    // @ts-ignore
-    html5QrCodeRef.current = new Html5Qrcode(readerId);
+    if (step === 2) {
+      const newScanner = new Html5QrcodeScanner(
+        'qr-reader-container',
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          rememberLastUsedCamera: true,
+          aspectRatio: 1.0,
+        },
+        true // verbose
+      );
 
-    // Cleanup function on component unmount
-    return () => {
-      if (html5QrCodeRef.current) {
+      const onScanSuccess = (decodedText, decodedResult) => {
+        newScanner.clear();
         try {
-            // @ts-ignore
-            if (html5QrCodeRef.current.isScanning) {
-                // @ts-ignore
-                html5QrCodeRef.current.stop();
-            }
-            // @ts-ignore
-            html5QrCodeRef.current.clear();
-        } catch (err) {
-            console.error("Failed to clear html5-qrcode on unmount", err);
+          console.log("Decoded QR Code:", decodedText);
+          const parsedData = JSON.parse(decodedText);
+          if (!parsedData.userId || !parsedData.barId || !parsedData.type) {
+            throw new Error("Неверный формат QR-кода.");
+          }
+          if (parsedData.expiresAt && Date.now() > parsedData.expiresAt) {
+            throw new Error("Срок действия QR-кода истек.");
+          }
+          fetchUserName(parsedData.userId);
+          setScannedData(parsedData);
+          setError(null);
+          setStep(3);
+        } catch (e) {
+          setError(e.message || "Ошибка чтения QR-кода. Это не код системы лояльности.");
+          setStep(2);
         }
+      };
+
+      const onScanFailure = (error) => {
+        // This will happen continuously until a QR code is found.
+        // console.warn(`QR scan error: ${error}`);
+      };
+
+      newScanner.render(onScanSuccess, onScanFailure);
+      setScanner(newScanner);
+    }
+
+    return () => {
+      if (scanner) {
+        scanner.clear().catch(error => {
+          console.error("Failed to clear html5-qrcode-scanner.", error);
+        });
       }
     };
-  }, []);
-
-  useEffect(() => {
-    const html5QrCode = html5QrCodeRef.current;
-    if (!html5QrCode) return;
-
-    if (step === 2) {
-      setError(null); // Clear previous errors
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      
-      html5QrCode.start(
-          { facingMode: "environment" }, // prefer back camera
-          config,
-          qrCodeSuccessCallback
-        )
-        .catch(err => {
-            // Fallback to any camera if environment fails
-            html5QrCode.start(
-                {}, // any camera
-                config,
-                qrCodeSuccessCallback
-            ).catch(err2 => {
-                setError("Не удалось запустить сканер. Проверьте разрешения для камеры.");
-            });
-        });
-
-    } else { // step is not 2, so we should stop scanning
-      if (html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => {
-            console.error("Failed to stop scanner", err);
-        });
-      }
-    }
-  }, [step]);
-
+  }, [step]); // Rerun when step changes to 2
 
   const handleBack = () => {
     onClose();
   };
-
-  const handleSpend = async () => {
+  
+    const handleSpend = async () => {
     setIsProcessing(true);
     setError(null);
     try {
@@ -165,7 +135,7 @@ const QRScanner = ({ bars, onClose }) => {
   };
 
   const renderContent = () => {
-    if (error && step !== 2) { // Show general error screen, but not if scanner start fails
+    if (error) {
       return (
           <div className="error-container">
               <h3>Ошибка</h3>
@@ -180,8 +150,7 @@ const QRScanner = ({ bars, onClose }) => {
         return (
           <div className="scanner-container">
             <h3>Сканируйте QR-код клиента</h3>
-            {error && <p className="inline-error-message" style={{color: 'red'}}>{error}</p>}
-            <div id={readerId} style={{ width: '100%' }}></div>
+            <div id="qr-reader-container" style={{ width: '100%' }}></div>
             <p className="scanner-instruction">Наведите камеру на QR-код</p>
           </div>
         );

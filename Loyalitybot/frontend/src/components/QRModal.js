@@ -11,6 +11,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
   useEffect(() => {
     // Генерируем данные для QR-кода
     const purchaseData = {
+      type: 'spend', // тип операции - списание
       userId: userId,
       barId: barId,
       itemId: itemId,
@@ -153,6 +154,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
                   setTimeLeft(300);
                   setIsExpired(false);
                   const purchaseData = {
+                    type: 'spend', // тип операции - списание
                     userId: userId,
                     barId: barId,
                     itemId: itemId,

@@ -1,6 +1,6 @@
 const User = require('../models/User');
 
-const authMiddleware = async (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   const sessionToken = req.headers['x-session-token'];
   
   if (!sessionToken) {
@@ -22,8 +22,16 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(501).json({ error: 'Request is not authorized' });
+    res.status(401).json({ error: 'Request is not authorized' });
   }
 };
 
-module.exports = authMiddleware;
+const requireAdmin = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора.' });
+    }
+};
+
+module.exports = { requireAuth, requireAdmin };

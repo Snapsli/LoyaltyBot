@@ -9,6 +9,7 @@ const multer = require('multer');
 const User = require('./models/User');
 const Bar = require('./models/Bar');
 const MenuItem = require('./models/MenuItem');
+const { requireAuth } = require('./middleware/authMiddleware'); // Импортируем middleware
 
 const app = express();
 // CORS configuration for production
@@ -68,33 +69,8 @@ mongoose.connect(process.env.MONGO_URI)
     })
     .catch(err => console.error('MongoDB connection error:', err));    
 
-// Authentication Middleware
-const requireAuth = async (req, res, next) => {
-  const sessionToken = req.headers['x-session-token'];
-  
-  if (!sessionToken) {
-    return res.status(401).json({ error: 'Authentication required (session token missing)' });
-  }
-
-  try {
-    // Find user by session token (works for both Telegram and classic auth)
-    const user = await User.findOne({ sessionToken: sessionToken });
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid authentication' });
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({ error: 'Your account is blocked by administrator.' });
-    }
-
-    req.user = user; // Attach user to the request
-    next(); // Proceed to the next middleware or route handler
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(401).json({ error: 'Request is not authorized' });
-  }
-};
+// Authentication Middleware (REMOVED FROM HERE)
+// const requireAuth = async (req, res, next) => { ... };
 
 // Image upload endpoint
 app.post('/api/upload/image', requireAuth, upload.single('image'), (req, res) => {
@@ -1357,6 +1333,10 @@ app.get('/api/health', (req, res) => {
     service: 'loyalty-backend'
   });
 });
+
+// --- Routes ---
+const adminRoutes = require('./routes/admin');
+app.use('/api', adminRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
