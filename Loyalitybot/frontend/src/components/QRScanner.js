@@ -1,6 +1,6 @@
 // This file will contain the QR Scanner component.
-import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import '../styles/QRScanner.css';
 
 const QRScanner = ({ bars, onClose }) => {
@@ -11,6 +11,9 @@ const QRScanner = ({ bars, onClose }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [processResult, setProcessResult] = useState(null);
+
+  const html5QrCodeRef = useRef(null);
+  const readerId = "qr-reader"; // ID for the scanner element
 
   const fetchUserName = async (userId) => {
     try {
@@ -28,70 +31,87 @@ const QRScanner = ({ bars, onClose }) => {
     }
   };
 
-  useEffect(() => {
-    if (step !== 2) {
-      return;
-    }
-
-    const scanner = new Html5QrcodeScanner(
-      'qr-reader',
-      {
-        qrbox: {
-          width: 250,
-          height: 250,
-        },
-        fps: 5,
-      },
-      false // verbose
-    );
-
-    const onScanSuccess = (decodedText, decodedResult) => {
-      scanner.clear();
+  const qrCodeSuccessCallback = (decodedText, decodedResult) => {
       try {
         const parsedData = JSON.parse(decodedText);
         
-        // Validation
         if (!parsedData.userId || !parsedData.barId || !parsedData.type) {
             throw new Error("Неверный формат QR-кода.");
         }
-
-        // No longer need to check against selectedBar, as we don't have one at this stage.
-        // The backend will handle the logic based on the barId from the QR code.
 
         if (parsedData.expiresAt && Date.now() > parsedData.expiresAt) {
             throw new Error("Срок действия QR-кода истек.");
         }
 
-        fetchUserName(parsedData.userId); // Fetch user name
+        fetchUserName(parsedData.userId);
         setScannedData(parsedData);
         setError(null);
-        setStep(3);
+        setStep(3); // Move to confirmation step
 
       } catch (e) {
         setError(e.message || "Ошибка чтения QR-кода. Это не код системы лояльности.");
-        // Возвращаемся к сканеру, чтобы пользователь мог попробовать еще раз
-        setStep(2); 
+        setStep(2); // Go back to scanning
+      }
+  };
+
+  useEffect(() => {
+    // Create instance on mount
+    // @ts-ignore
+    html5QrCodeRef.current = new Html5Qrcode(readerId);
+
+    // Cleanup function on component unmount
+    return () => {
+      if (html5QrCodeRef.current) {
+        try {
+            // @ts-ignore
+            if (html5QrCodeRef.current.isScanning) {
+                // @ts-ignore
+                html5QrCodeRef.current.stop();
+            }
+            // @ts-ignore
+            html5QrCodeRef.current.clear();
+        } catch (err) {
+            console.error("Failed to clear html5-qrcode on unmount", err);
+        }
       }
     };
+  }, []);
 
-    const onScanFailure = (error) => {
-      // console.warn(`Code scan error = ${error}`);
-    };
-    
-    scanner.render(onScanSuccess, onScanFailure);
+  useEffect(() => {
+    const html5QrCode = html5QrCodeRef.current;
+    if (!html5QrCode) return;
 
-    return () => {
-        // cleanup function
-        if (scanner) {
-            scanner.clear().catch(error => {
-                console.error("Failed to clear html5-qrcode-scanner.", error);
+    if (step === 2) {
+      setError(null); // Clear previous errors
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      
+      html5QrCode.start(
+          { facingMode: "environment" }, // prefer back camera
+          config,
+          qrCodeSuccessCallback
+        )
+        .catch(err => {
+            // Fallback to any camera if environment fails
+            html5QrCode.start(
+                {}, // any camera
+                config,
+                qrCodeSuccessCallback
+            ).catch(err2 => {
+                setError("Не удалось запустить сканер. Проверьте разрешения для камеры.");
             });
-        }
-    };
+        });
+
+    } else { // step is not 2, so we should stop scanning
+      if (html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => {
+            console.error("Failed to stop scanner", err);
+        });
+      }
+    }
   }, [step]);
 
+
   const handleBack = () => {
-    // Since we start at step 2, back always closes the modal
     onClose();
   };
 
@@ -145,7 +165,7 @@ const QRScanner = ({ bars, onClose }) => {
   };
 
   const renderContent = () => {
-    if (error) {
+    if (error && step !== 2) { // Show general error screen, but not if scanner start fails
       return (
           <div className="error-container">
               <h3>Ошибка</h3>
@@ -160,7 +180,8 @@ const QRScanner = ({ bars, onClose }) => {
         return (
           <div className="scanner-container">
             <h3>Сканируйте QR-код клиента</h3>
-            <div id="qr-reader" style={{ width: '100%' }}></div>
+            {error && <p className="inline-error-message" style={{color: 'red'}}>{error}</p>}
+            <div id={readerId} style={{ width: '100%' }}></div>
             <p className="scanner-instruction">Наведите камеру на QR-код</p>
           </div>
         );
