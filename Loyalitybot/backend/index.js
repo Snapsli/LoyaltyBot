@@ -1336,7 +1336,7 @@ app.get('/api/health', (req, res) => {
 
 // --- Routes ---
 const adminRoutes = require('./routes/admin');
-app.use('/api', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

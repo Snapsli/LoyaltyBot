@@ -15,7 +15,7 @@ const QRScanner = ({ bars, onClose }) => {
 
   const fetchUserName = async (userId) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/user-info/${userId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/user-info/${userId}`, {
         headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
       });
       if (response.ok) {
@@ -89,7 +89,7 @@ const QRScanner = ({ bars, onClose }) => {
     setIsProcessing(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/process-spend', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/process-spend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ const QRScanner = ({ bars, onClose }) => {
     }
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/admin/process-earn', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/process-earn`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

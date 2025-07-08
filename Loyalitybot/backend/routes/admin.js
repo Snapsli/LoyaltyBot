@@ -21,7 +21,8 @@ router.get('/user-info/:userId', requireAuth, requireAdmin, async (req, res) => 
 });
 
 // Маршрут для обработки списания баллов (сканирование QR-кода админом)
-router.post('/admin/process-spend', requireAuth, requireAdmin, async (req, res) => {
+// Путь будет /api/admin/process-spend
+router.post('/process-spend', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { qrData } = req.body;
 
@@ -38,6 +39,11 @@ router.post('/admin/process-spend', requireAuth, requireAdmin, async (req, res) 
             return res.status(404).json({ error: "Клиент не найден" });
         }
 
+        // Убедимся, что у пользователя есть поле barPoints
+        if (!user.barPoints) {
+            user.barPoints = new Map();
+        }
+
         const barIdStr = qrData.barId.toString();
         const currentPoints = user.barPoints.get(barIdStr) || 0;
 
@@ -47,7 +53,11 @@ router.post('/admin/process-spend', requireAuth, requireAdmin, async (req, res) 
 
         // Списание баллов
         const newPoints = currentPoints - qrData.itemPrice;
-        user.barPoints.set(barIdStr, newPoints);
+        
+        const updatedBarPoints = new Map(user.barPoints);
+        updatedBarPoints.set(barIdStr, newPoints);
+        user.barPoints = updatedBarPoints;
+
         await user.save();
         
         // TODO: Создать и сохранить транзакцию для истории

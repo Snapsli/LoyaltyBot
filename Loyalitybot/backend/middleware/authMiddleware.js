@@ -2,6 +2,7 @@ const User = require('../models/User');
 
 const requireAuth = async (req, res, next) => {
   const sessionToken = req.headers['x-session-token'];
+  console.log(`[AUTH] Attempting auth for ${req.path}, Token: ${sessionToken ? 'Present' : 'Missing'}`);
   
   if (!sessionToken) {
     return res.status(401).json({ error: 'Authentication required (session token missing)' });
