@@ -18,10 +18,12 @@ body {
 }
 
 .app-container {
-  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  font-family: 'Roboto', sans-serif;
+  color: var(--tg-theme-text-color);
+  background-color: var(--tg-theme-bg-color);
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 .app-header {
@@ -3499,4 +3501,9 @@ div.main-container {
   .bars-breakdown .bar-points-value {
     font-size: 0.8rem;
   }
+}
+
+/* SweetAlert2 z-index fix */
+.swal2-container {
+  z-index: 1050 !important;
 }

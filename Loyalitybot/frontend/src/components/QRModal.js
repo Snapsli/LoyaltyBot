@@ -85,8 +85,9 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
                             icon: 'success',
                             timer: 3000,
                             timerProgressBar: true,
+                        }).then(() => {
+                            onClose(); // Закрываем модальное окно ПОСЛЕ уведомления
                         });
-                        onClose(); // Закрываем модальное окно
                     }
                 }
             } catch (error) {

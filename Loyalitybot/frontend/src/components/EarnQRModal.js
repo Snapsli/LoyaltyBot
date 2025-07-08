@@ -143,8 +143,9 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
                               icon: 'success',
                               timer: 3000,
                               timerProgressBar: true,
+                          }).then(() => {
+                            onClose(); 
                           });
-                          onClose(); 
                       }
                   }
               } catch (error) {

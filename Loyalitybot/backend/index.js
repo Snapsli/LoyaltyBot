@@ -109,16 +109,13 @@ app.post('/api/auth/telegram', async (req, res) => {
       user.sessionToken = sessionToken; 
       await user.save();
     } else {
-      // Check if this is the first user being created
-      const userCount = await User.countDocuments();
-
       // Create new user
       sessionToken = crypto.randomBytes(32).toString('hex');
       
       // Role assignment: admin if first user, otherwise user
       let assignedRole = 'user';
 
-      if (userCount === 0) {
+      if (userCount === 0 && telegram_id !== 123456789) { // Don't make the mock user an admin
         assignedRole = 'admin';
       }
 
@@ -1317,10 +1314,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// --- Routes ---
-const adminRoutes = require('./routes/admin');
-app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
-
 // --- Transaction polling endpoint ---
 app.get('/api/transactions/latest', requireAuth, async (req, res) => {
     try {
@@ -1337,6 +1330,10 @@ app.get('/api/transactions/latest', requireAuth, async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// --- Routes ---
+const adminRoutes = require('./routes/admin');
+app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 
 // --- Server startup ---
 const PORT = process.env.PORT || 8000;
