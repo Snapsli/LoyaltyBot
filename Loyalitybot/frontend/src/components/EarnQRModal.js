@@ -39,7 +39,10 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
         expiresAt: Date.now() + (5 * 60 * 1000) // 5 минут
       };
 
-      setQrData(JSON.stringify(earnData));
+      // Правильное кодирование Unicode-строки в Base64
+      const utf8Bytes = new TextEncoder().encode(JSON.stringify(earnData));
+      const base64String = btoa(String.fromCharCode(...utf8Bytes));
+      setQrData(base64String);
     }
   }, [userId, barId, barName, barSettings]);
 
@@ -126,7 +129,10 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
       timestamp: Date.now(),
       expiresAt: Date.now() + (5 * 60 * 1000)
     };
-    setQrData(JSON.stringify(earnData));
+    // Правильное кодирование Unicode-строки в Base64
+    const utf8Bytes = new TextEncoder().encode(JSON.stringify(earnData));
+    const base64String = btoa(String.fromCharCode(...utf8Bytes));
+    setQrData(base64String);
   };
 
   const emulateEarnPoints = async () => {

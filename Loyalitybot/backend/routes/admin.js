@@ -74,4 +74,54 @@ router.post('/process-spend', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Маршрут для обработки начисления баллов
+router.post('/process-earn', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { qrData, purchaseAmount } = req.body;
+
+        if (!qrData || !purchaseAmount || isNaN(purchaseAmount) || Number(purchaseAmount) <= 0) {
+            return res.status(400).json({ error: "Неверные данные для начисления" });
+        }
+
+        const user = await User.findById(qrData.userId);
+        if (!user) {
+            return res.status(404).json({ error: "Клиент не найден" });
+        }
+        
+        // TODO: Заменить на реальные настройки бара
+        const pointsPerRuble = 0.1; // Пример: 10% кэшбэк в баллах
+        const pointsEarned = Math.floor(Number(purchaseAmount) * pointsPerRuble);
+
+        if (pointsEarned <= 0) {
+            return res.status(400).json({ error: "Сумма покупки слишком мала для начисления баллов" });
+        }
+
+        if (!user.barPoints) {
+            user.barPoints = new Map();
+        }
+        
+        const barIdStr = qrData.barId.toString();
+        const currentPoints = user.barPoints.get(barIdStr) || 0;
+        const newPoints = currentPoints + pointsEarned;
+        
+        const updatedBarPoints = new Map(user.barPoints);
+        updatedBarPoints.set(barIdStr, newPoints);
+        user.barPoints = updatedBarPoints;
+
+        await user.save();
+        
+        // TODO: Создать и сохранить транзакцию для истории
+
+        res.json({
+            success: true,
+            message: `Начислено ${pointsEarned} баллов клиенту ${user.firstName}.`,
+            newBalance: newPoints
+        });
+
+    } catch (error) {
+        console.error('Ошибка при обработке начисления:', error);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера при обработке начисления' });
+    }
+});
+
 module.exports = router; 

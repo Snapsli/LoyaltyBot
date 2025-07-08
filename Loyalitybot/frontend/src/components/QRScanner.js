@@ -45,8 +45,19 @@ const QRScanner = ({ bars, onClose }) => {
       const onScanSuccess = (decodedText, decodedResult) => {
         newScanner.clear();
         try {
-          console.log("Decoded QR Code:", decodedText);
-          const parsedData = JSON.parse(decodedText);
+          console.log("Raw Decoded Text:", decodedText);
+          
+          // Правильное декодирование Base64 в Unicode-строку
+          const binaryString = atob(decodedText);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const jsonString = new TextDecoder().decode(bytes);
+          
+          console.log("Decoded JSON String:", jsonString);
+
+          const parsedData = JSON.parse(jsonString);
           if (!parsedData.userId || !parsedData.barId || !parsedData.type) {
             throw new Error("Неверный формат QR-кода.");
           }

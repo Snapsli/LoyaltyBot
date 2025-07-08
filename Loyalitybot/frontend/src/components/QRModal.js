@@ -14,6 +14,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
       type: 'spend', // тип операции - списание
       userId: userId,
       barId: barId,
+      barName: barName,
       itemId: itemId,
       itemName: itemName,
       itemPrice: itemPrice,
@@ -21,8 +22,11 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
       expiresAt: Date.now() + (5 * 60 * 1000) // 5 минут
     };
 
-    setQrData(JSON.stringify(purchaseData));
-  }, [userId, barId, itemId, itemName, itemPrice]);
+    // Правильное кодирование Unicode-строки в Base64
+    const utf8Bytes = new TextEncoder().encode(JSON.stringify(purchaseData));
+    const base64String = btoa(String.fromCharCode(...utf8Bytes));
+    setQrData(base64String);
+  }, [userId, barId, barName, itemId, itemName, itemPrice]);
 
   useEffect(() => {
     // Таймер обратного отсчета
@@ -157,13 +161,17 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
                     type: 'spend', // тип операции - списание
                     userId: userId,
                     barId: barId,
+                    barName: barName,
                     itemId: itemId,
                     itemName: itemName,
                     itemPrice: itemPrice,
                     timestamp: Date.now(),
                     expiresAt: Date.now() + (5 * 60 * 1000)
                   };
-                  setQrData(JSON.stringify(purchaseData));
+                  // Правильное кодирование Unicode-строки в Base64
+                  const utf8Bytes = new TextEncoder().encode(JSON.stringify(purchaseData));
+                  const base64String = btoa(String.fromCharCode(...utf8Bytes));
+                  setQrData(base64String);
                 }}
               >
                 Сгенерировать новый QR-код
