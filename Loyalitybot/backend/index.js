@@ -10,6 +10,7 @@ const User = require('./models/User');
 const Bar = require('./models/Bar');
 const MenuItem = require('./models/MenuItem');
 const { requireAuth } = require('./middleware/authMiddleware'); // Импортируем middleware
+const { getBarPointsSettings, updateBarPointsSettings, pointsSettings } = require('./utils/pointsSettings');
 
 const app = express();
 // CORS configuration for production
@@ -901,25 +902,6 @@ app.post('/api/earn/qr', requireAuth, async (req, res) => {
 });
 
 // Points Settings Management (Admin only)
-
-// In-memory storage for points settings (later can be replaced with DB)
-let pointsSettings = {
-  '1': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Культура
-  '2': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Caballitos
-  '3': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }, // Fonoteca
-  '4': { pointsPerRuble: 0.01, minPurchase: 0, isActive: true }  // Tchaikovsky
-};
-
-// Helper function to get points settings for a specific bar
-const getBarPointsSettings = (barId) => {
-  return pointsSettings[String(barId)] || { pointsPerRuble: 0.01, minPurchase: 0, isActive: true };
-};
-
-// Helper function to update points settings for a specific bar
-const updateBarPointsSettings = (barId, newSettings) => {
-  pointsSettings[String(barId)] = { ...getBarPointsSettings(barId), ...newSettings };
-  return pointsSettings[String(barId)];
-};
 
 // Get points settings for all bars (Admin only)
 app.get('/api/admin/points-settings', requireAuth, async (req, res) => {

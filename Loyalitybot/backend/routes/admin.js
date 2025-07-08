@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
+const { getBarPointsSettings } = require('../utils/pointsSettings');
+
+// --- Логика настроек баллов (скопировано из index.js для инкапсуляции) ---
+
+// --- Маршруты админа ---
 
 // Middleware для проверки роли администратора (уже импортирован)
 // const requireAdmin = (req, res, next) => { ... };
@@ -88,9 +93,17 @@ router.post('/process-earn', requireAuth, requireAdmin, async (req, res) => {
             return res.status(404).json({ error: "Клиент не найден" });
         }
         
-        // TODO: Заменить на реальные настройки бара
-        const pointsPerRuble = 0.1; // Пример: 10% кэшбэк в баллах
-        const pointsEarned = Math.floor(Number(purchaseAmount) * pointsPerRuble);
+        const barSettings = getBarPointsSettings(qrData.barId);
+        
+        if (!barSettings.isActive) {
+            return res.status(400).json({ error: `Программа лояльности в этом заведении временно отключена.` });
+        }
+
+        if (Number(purchaseAmount) < barSettings.minPurchase) {
+            return res.status(400).json({ error: `Минимальная сумма для начисления: ${barSettings.minPurchase} ₽` });
+        }
+
+        const pointsEarned = Math.floor(Number(purchaseAmount) * barSettings.pointsPerRuble);
 
         if (pointsEarned <= 0) {
             return res.status(400).json({ error: "Сумма покупки слишком мала для начисления баллов" });
