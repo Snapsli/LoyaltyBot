@@ -1,12 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'react-qr-code';
+import Swal from 'sweetalert2';
 
 const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose }) => {
   const [qrData, setQrData] = useState('');
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300); // 5 минут
+  const [lastTransactionTimestamp, setLastTransactionTimestamp] = useState(null);
+  const pollingRef = useRef(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchaseResult, setPurchaseResult] = useState(null);
+
+  useEffect(() => {
+    // Получаем временную метку последней транзакции ПЕРЕД генерацией QR
+    const fetchLastTransaction = async () => {
+        try {
+            const response = await fetch(`/api/transactions/latest`, {
+                headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+            });
+            if (response.ok && response.status !== 204) {
+                const data = await response.json();
+                setLastTransactionTimestamp(data.timestamp);
+            }
+        } catch (error) {
+            console.error("Не удалось получить последнюю транзакцию:", error);
+        }
+    };
+    fetchLastTransaction();
+  }, []);
 
   useEffect(() => {
     // Генерируем данные для QR-кода
@@ -34,6 +55,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
       setTimeLeft(prev => {
         if (prev <= 1) {
           setIsExpired(true);
+          clearInterval(pollingRef.current); // Останавливаем опрос при истечении
           return 0;
         }
         return prev - 1;
@@ -44,9 +66,42 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
   }, []);
 
   useEffect(() => {
+    // Запускаем опрос только когда у нас есть временная метка
+    if (lastTransactionTimestamp) {
+        pollingRef.current = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/transactions/latest`, {
+                    headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+                });
+
+                if (response.ok && response.status !== 204) {
+                    const latestTransaction = await response.json();
+                    // Проверяем, что это новая транзакция списания
+                    if (latestTransaction.timestamp > lastTransactionTimestamp && latestTransaction.type === 'spend') {
+                        clearInterval(pollingRef.current);
+                        Swal.fire({
+                            title: 'Успешно!',
+                            text: `Ваши баллы списаны, получите "${itemName}"`,
+                            icon: 'success',
+                            timer: 3000,
+                            timerProgressBar: true,
+                        });
+                        onClose(); // Закрываем модальное окно
+                    }
+                }
+            } catch (error) {
+                console.error("Ошибка опроса транзакции:", error);
+            }
+        }, 2000); // Опрос каждые 2 секунды
+    }
+    return () => clearInterval(pollingRef.current);
+  }, [lastTransactionTimestamp, itemName, onClose]);
+
+  useEffect(() => {
     // Закрытие по ESC
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        clearInterval(pollingRef.current);
         onClose();
       }
     };
@@ -120,7 +175,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
       <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="qr-header">
           <h2 className="qr-title">QR-код для покупки</h2>
-          <button className="qr-close-button" onClick={onClose}>✕</button>
+          <button className="qr-close-button" onClick={() => { clearInterval(pollingRef.current); onClose(); }}>✕</button>
         </div>
         
         <div className="qr-item-info">
@@ -219,7 +274,7 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
           
           <button 
             className="qr-cancel-btn" 
-            onClick={onClose}
+            onClick={() => { clearInterval(pollingRef.current); onClose(); }}
             disabled={isProcessing}
           >
             {purchaseResult?.success ? 'Закрыть' : 'Отменить'}

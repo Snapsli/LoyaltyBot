@@ -274,7 +274,7 @@ function App() {
     localStorage.removeItem('loyalty_user');
     localStorage.removeItem('loyalty_token');
     setShowLoginPage(true);
-    setInitialRoute('/'); // Сбрасываем маршрут на главную
+    setInitialRoute('/');
     
     if (tg) {
       tg.close();
@@ -284,31 +284,33 @@ function App() {
   const refreshPoints = async () => {
     try {
       const token = localStorage.getItem('loyalty_token');
-      if (!token || !user) return;
+      if (!token) return;
 
       const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/auth/me`, {
         headers: {
-          'x-session-token': token
-        }
+          'x-session-token': token,
+        },
       });
 
       if (response.ok) {
-        const userData = await response.json();
-        const updatedUser = { 
-          ...user, 
-          balance: userData.balance,
-          barPoints: userData.barPoints || {},
-          role: userData.role,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          username: userData.username,
-          phone: userData.phone
-        };
-        setUser(updatedUser);
-        localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
+        const updatedUser = await response.json();
+        
+        // Cоздаем новый объект пользователя, чтобы React точно заметил изменения
+        setUser(prevUser => ({
+          ...prevUser,
+          ...updatedUser,
+          barPoints: updatedUser.barPoints
+        }));
+        
+        // Обновляем localStorage
+        const storedUser = JSON.parse(localStorage.getItem('loyalty_user') || '{}');
+        localStorage.setItem('loyalty_user', JSON.stringify({ ...storedUser, ...updatedUser }));
+
+      } else {
+        console.error('Failed to refresh points');
       }
-    } catch (err) {
-      console.error('Error refreshing points:', err);
+    } catch (error) {
+      console.error('Error refreshing points:', error);
     }
   };
 
@@ -365,7 +367,16 @@ function App() {
             <Navigate to={initialRoute} replace /> : 
             <MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} onToggleRole={toggleRole} />
         } />
-        <Route path="/bars/:barId" element={<BarLoyalty user={user} />} />
+        <Route path="/bar/:barId" element={
+          user ? (
+            <BarLoyalty 
+              user={user} 
+              onRefreshUser={refreshPoints}
+            />
+          ) : (
+            <Navigate to="/login" />
+          )
+        } />
         <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} onRefreshPoints={refreshPoints} />} />
         {user.role === 'admin' && (
           <>
@@ -431,7 +442,7 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
   };
 
   const goToBar = (barId) => {
-    navigate(`/bars/${barId}`);
+    navigate(`/bar/${barId}`);
   };
 
   const toggleSection = (section) => {
@@ -598,6 +609,7 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
 function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
+  const [stats, setStats] = useState({ totalPoints: 0, barsWithPoints: 0 });
 
   useEffect(() => {
     // Автоматически обновляем баллы при загрузке профиля

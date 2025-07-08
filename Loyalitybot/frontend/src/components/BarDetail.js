@@ -23,7 +23,7 @@ const getTotalUserPoints = (user) => {
   return Object.values(barPoints).reduce((total, points) => total + (points || 0), 0);
 };
 
-const BarDetail = ({ bar, user, onBack }) => {
+const BarDetail = ({ bar, user, onBack, onRefreshUser }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showEarnQRModal, setShowEarnQRModal] = useState(false);
@@ -55,10 +55,12 @@ const BarDetail = ({ bar, user, onBack }) => {
   const handleCloseQR = () => {
     setShowQRModal(false);
     setSelectedItem(null);
+    if (onRefreshUser) onRefreshUser();
   };
 
   const handleCloseEarnQR = () => {
     setShowEarnQRModal(false);
+    if (onRefreshUser) onRefreshUser();
   };
 
   React.useEffect(() => {

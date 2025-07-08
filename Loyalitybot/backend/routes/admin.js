@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 const { getBarPointsSettings } = require('../utils/pointsSettings');
 
@@ -65,7 +66,15 @@ router.post('/process-spend', requireAuth, requireAdmin, async (req, res) => {
 
         await user.save();
         
-        // TODO: Создать и сохранить транзакцию для истории
+        // Создаем и сохраняем транзакцию
+        const transaction = new Transaction({
+            userId: qrData.userId,
+            barId: qrData.barId,
+            type: 'spend',
+            points: -qrData.itemPrice,
+            description: `Списание за "${qrData.itemName || 'товар'}"`
+        });
+        await transaction.save();
 
         res.json({
             success: true,
@@ -123,7 +132,15 @@ router.post('/process-earn', requireAuth, requireAdmin, async (req, res) => {
 
         await user.save();
         
-        // TODO: Создать и сохранить транзакцию для истории
+        // Создаем и сохраняем транзакцию
+        const transaction = new Transaction({
+            userId: qrData.userId,
+            barId: qrData.barId,
+            type: 'earn',
+            points: pointsEarned,
+            description: `Начисление за покупку на ${purchaseAmount} ₽`
+        });
+        await transaction.save();
 
         res.json({
             success: true,

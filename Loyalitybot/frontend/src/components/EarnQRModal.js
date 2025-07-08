@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'react-qr-code';
+import Swal from 'sweetalert2';
 
 const EarnQRModal = ({ userId, barId, barName, onClose }) => {
   const [qrData, setQrData] = useState('');
@@ -10,6 +11,30 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [barSettings, setBarSettings] = useState(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [lastTransactionTimestamp, setLastTransactionTimestamp] = useState(null);
+  const pollingRef = useRef(null);
+
+  useEffect(() => {
+    // Получаем временную метку последней транзакции ПЕРЕД генерацией QR
+    const fetchLastTransaction = async () => {
+        try {
+            const response = await fetch(`/api/transactions/latest`, {
+                headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+            });
+            if (response.ok && response.status !== 204) {
+                const data = await response.json();
+                setLastTransactionTimestamp(data.timestamp);
+            } else {
+                // Если транзакций нет, устанавливаем базовое значение
+                setLastTransactionTimestamp(new Date(0).toISOString());
+            }
+        } catch (error) {
+            console.error("Не удалось получить последнюю транзакцию:", error);
+            setLastTransactionTimestamp(new Date(0).toISOString()); // Устанавливаем базовое значение при ошибке
+        }
+    };
+    fetchLastTransaction();
+  }, []);
 
   useEffect(() => {
     // Загружаем настройки каждый раз при открытии модала
@@ -88,6 +113,7 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           setIsExpired(true);
+          clearInterval(pollingRef.current);
           return 0;
         }
         return prev - 1;
@@ -98,9 +124,42 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
   }, []);
 
   useEffect(() => {
+      // Запускаем опрос только когда у нас есть временная метка
+      if (lastTransactionTimestamp) {
+          pollingRef.current = setInterval(async () => {
+              try {
+                  const response = await fetch(`/api/transactions/latest`, {
+                      headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+                  });
+
+                  if (response.ok && response.status !== 204) {
+                      const latestTransaction = await response.json();
+                      
+                      if (latestTransaction.timestamp > lastTransactionTimestamp && latestTransaction.type === 'earn') {
+                          clearInterval(pollingRef.current);
+                          Swal.fire({
+                              title: 'Успешно!',
+                              text: `Вам начислено ${latestTransaction.points} баллов!`,
+                              icon: 'success',
+                              timer: 3000,
+                              timerProgressBar: true,
+                          });
+                          onClose(); 
+                      }
+                  }
+              } catch (error) {
+                  console.error("Ошибка опроса транзакции:", error);
+              }
+          }, 2000); 
+      }
+      return () => clearInterval(pollingRef.current);
+  }, [lastTransactionTimestamp, onClose]);
+
+  useEffect(() => {
     // Закрытие по ESC
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        clearInterval(pollingRef.current);
         onClose();
       }
     };
@@ -121,6 +180,25 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
     setEarnResult(null);
     // Перезагружаем настройки перед генерацией нового QR кода
     loadBarSettings();
+    // Сбрасываем и получаем последнюю транзакцию снова
+    const fetchLastTransaction = async () => {
+        try {
+            const response = await fetch(`/api/transactions/latest`, {
+                headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
+            });
+            if (response.ok && response.status !== 204) {
+                const data = await response.json();
+                setLastTransactionTimestamp(data.timestamp);
+            } else {
+                setLastTransactionTimestamp(new Date(0).toISOString());
+            }
+        } catch (error) {
+            console.error("Не удалось получить последнюю транзакцию:", error);
+            setLastTransactionTimestamp(new Date(0).toISOString());
+        }
+    };
+    fetchLastTransaction();
+    
     const earnData = {
       type: 'earn',
       userId: userId,
@@ -204,7 +282,7 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
       <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="qr-header">
           <h2 className="qr-title">QR-код для накопления баллов</h2>
-          <button className="qr-close-button" onClick={onClose}>✕</button>
+          <button className="qr-close-button" onClick={() => { clearInterval(pollingRef.current); onClose(); }}>✕</button>
         </div>
         
         <div className="qr-item-info">

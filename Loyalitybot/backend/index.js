@@ -9,8 +9,9 @@ const multer = require('multer');
 const User = require('./models/User');
 const Bar = require('./models/Bar');
 const MenuItem = require('./models/MenuItem');
-const { requireAuth } = require('./middleware/authMiddleware'); // Импортируем middleware
+const { requireAuth, requireAdmin } = require('./middleware/authMiddleware'); // Импортируем middleware
 const { getBarPointsSettings, updateBarPointsSettings, pointsSettings } = require('./utils/pointsSettings');
+const Transaction = require('./models/Transaction');
 
 const app = express();
 // CORS configuration for production
@@ -1318,8 +1319,26 @@ app.get('/api/health', (req, res) => {
 
 // --- Routes ---
 const adminRoutes = require('./routes/admin');
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 
+// --- Transaction polling endpoint ---
+app.get('/api/transactions/latest', requireAuth, async (req, res) => {
+    try {
+        const latestTransaction = await Transaction.findOne({ userId: req.user._id })
+                                                   .sort({ timestamp: -1 }); // Находим самую последнюю
+
+        if (!latestTransaction) {
+            return res.status(204).send(); // No Content
+        }
+
+        res.status(200).json(latestTransaction);
+    } catch (error) {
+        console.error('Error fetching latest transaction:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Server startup ---
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     console.log(`Loyalty backend server is running on port ${PORT}`);

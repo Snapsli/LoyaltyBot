@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import '../styles/BarLoyalty.css';
 import BarDetail from './BarDetail';
 
-const BarLoyalty = ({ user }) => {
+const BarLoyalty = ({ user, onRefreshUser }) => {
   const [selectedBar, setSelectedBar] = useState(null);
   const { barId } = useParams();
   const navigate = useNavigate();
@@ -74,6 +74,7 @@ const BarLoyalty = ({ user }) => {
       bar={selectedBar} 
       user={user}
       onBack={handleBackToMain}
+      onRefreshUser={onRefreshUser}
     />
   );
 };
