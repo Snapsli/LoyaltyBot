@@ -15,12 +15,12 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
     // Получаем временную метку последней транзакции ПЕРЕД генерацией QR
     const fetchLastTransaction = async () => {
         try {
-            const response = await fetch(`/api/transactions/latest`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/transactions/latest`, {
                 headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
             });
             if (response.ok && response.status !== 204) {
                 const data = await response.json();
-                setLastTransactionTimestamp(data.timestamp);
+                setLastTransactionTimestamp(new Date(data.timestamp).getTime());
             }
         } catch (error) {
             console.error("Не удалось получить последнюю транзакцию:", error);
@@ -70,14 +70,15 @@ const QRModal = ({ userId, barId, barName, itemId, itemName, itemPrice, onClose 
     if (lastTransactionTimestamp) {
         pollingRef.current = setInterval(async () => {
             try {
-                const response = await fetch(`/api/transactions/latest`, {
+                const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/transactions/latest`, {
                     headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
                 });
 
                 if (response.ok && response.status !== 204) {
                     const latestTransaction = await response.json();
                     // Проверяем, что это новая транзакция списания
-                    if (latestTransaction.timestamp > lastTransactionTimestamp && latestTransaction.type === 'spend') {
+                    const transactionTime = new Date(latestTransaction.timestamp).getTime();
+                    if (transactionTime > lastTransactionTimestamp && latestTransaction.type === 'spend') {
                         clearInterval(pollingRef.current);
                         Swal.fire({
                             title: 'Успешно!',

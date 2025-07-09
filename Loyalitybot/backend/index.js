@@ -379,6 +379,16 @@ app.put('/api/users/:userId/add-bar-points', requireAuth, async (req, res) => {
     await user.save();
     console.log('User saved successfully');
 
+    // Создаем и сохраняем транзакцию
+    const transaction = new Transaction({
+        userId: userId,
+        barId: barId,
+        type: 'earn',
+        points: points,
+        description: `Административное начисление ${points} баллов`
+    });
+    await transaction.save();
+
     const response = {
       message: `Added ${points} points to user ${user.firstName} for bar ${barId}`,
       user: {
@@ -431,8 +441,19 @@ app.put('/api/users/:userId/remove-bar-points', requireAuth, async (req, res) =>
 
     const barIdStr = String(barId);
     const currentPoints = user.barPoints.get(barIdStr) || 0;
+    const actualPointsRemoved = Math.min(points, currentPoints); // Фактически списанные баллы
     user.barPoints.set(barIdStr, Math.max(0, currentPoints - points));
     await user.save();
+
+    // Создаем и сохраняем транзакцию
+    const transaction = new Transaction({
+        userId: userId,
+        barId: barId,
+        type: 'spend',
+        points: -actualPointsRemoved,
+        description: `Административное списание ${actualPointsRemoved} баллов`
+    });
+    await transaction.save();
 
     res.status(200).json({
       message: `Removed ${points} points from user ${user.firstName} for bar ${barId}`,
@@ -872,6 +893,16 @@ app.post('/api/earn/qr', requireAuth, async (req, res) => {
     user.barPoints.set(barIdStr, newPoints);
     await user.save();
 
+    // Создаем и сохраняем транзакцию
+    const transaction = new Transaction({
+        userId: userId,
+        barId: barId,
+        type: 'earn',
+        points: pointsEarned,
+        description: `Начисление за покупку на ${purchaseAmount} ₽ (через QR)`
+    });
+    await transaction.save();
+
     res.status(200).json({
       success: true,
       message: `Points earned successfully: +${pointsEarned} points`,
@@ -1152,6 +1183,16 @@ app.post('/api/dev/emulate-earn', requireAuth, async (req, res) => {
     user.barPoints.set(barIdStr, newPoints);
     await user.save();
 
+    // Создаем и сохраняем транзакцию
+    const transaction = new Transaction({
+        userId: userId,
+        barId: barId,
+        type: 'earn',
+        points: pointsEarned,
+        description: `Эмуляция начисления за покупку на ${purchaseAmount} ₽`
+    });
+    await transaction.save();
+
     res.status(200).json({
       success: true,
       message: `Points earned successfully: +${pointsEarned} points`,
@@ -1196,7 +1237,9 @@ app.post('/api/dev/emulate-purchase', requireAuth, async (req, res) => {
 
     let parsedData;
     try {
-      parsedData = JSON.parse(qrData);
+      // Декодируем base64 и парсим JSON
+      const decodedData = atob(qrData);
+      parsedData = JSON.parse(decodedData);
     } catch (error) {
       return res.status(400).json({ error: 'Invalid QR code format' });
     }
@@ -1240,6 +1283,16 @@ app.post('/api/dev/emulate-purchase', requireAuth, async (req, res) => {
     // Deduct points
     user.barPoints.set(barIdStr, currentPoints - itemPrice);
     await user.save();
+
+    // Создаем и сохраняем транзакцию
+    const transaction = new Transaction({
+        userId: userId,
+        barId: barId,
+        type: 'spend',
+        points: -itemPrice,
+        description: `Эмуляция покупки: "${itemName}"`
+    });
+    await transaction.save();
 
     res.status(200).json({
       success: true,

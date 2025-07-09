@@ -18,19 +18,19 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
     // Получаем временную метку последней транзакции ПЕРЕД генерацией QR
     const fetchLastTransaction = async () => {
         try {
-            const response = await fetch(`/api/transactions/latest`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/transactions/latest`, {
                 headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
             });
             if (response.ok && response.status !== 204) {
                 const data = await response.json();
-                setLastTransactionTimestamp(data.timestamp);
+                setLastTransactionTimestamp(new Date(data.timestamp).getTime());
             } else {
                 // Если транзакций нет, устанавливаем базовое значение
-                setLastTransactionTimestamp(new Date(0).toISOString());
+                setLastTransactionTimestamp(0);
             }
         } catch (error) {
             console.error("Не удалось получить последнюю транзакцию:", error);
-            setLastTransactionTimestamp(new Date(0).toISOString()); // Устанавливаем базовое значение при ошибке
+            setLastTransactionTimestamp(0); // Устанавливаем базовое значение при ошибке
         }
     };
     fetchLastTransaction();
@@ -128,14 +128,15 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
       if (lastTransactionTimestamp) {
           pollingRef.current = setInterval(async () => {
               try {
-                  const response = await fetch(`/api/transactions/latest`, {
+                  const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/transactions/latest`, {
                       headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
                   });
 
                   if (response.ok && response.status !== 204) {
                       const latestTransaction = await response.json();
                       
-                      if (latestTransaction.timestamp > lastTransactionTimestamp && latestTransaction.type === 'earn') {
+                      const transactionTime = new Date(latestTransaction.timestamp).getTime();
+                      if (transactionTime > lastTransactionTimestamp && latestTransaction.type === 'earn') {
                           clearInterval(pollingRef.current);
                           Swal.fire({
                               title: 'Успешно!',
@@ -184,18 +185,18 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
     // Сбрасываем и получаем последнюю транзакцию снова
     const fetchLastTransaction = async () => {
         try {
-            const response = await fetch(`/api/transactions/latest`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/transactions/latest`, {
                 headers: { 'x-session-token': localStorage.getItem('loyalty_token') }
             });
             if (response.ok && response.status !== 204) {
                 const data = await response.json();
-                setLastTransactionTimestamp(data.timestamp);
+                setLastTransactionTimestamp(new Date(data.timestamp).getTime());
             } else {
-                setLastTransactionTimestamp(new Date(0).toISOString());
+                setLastTransactionTimestamp(0);
             }
         } catch (error) {
             console.error("Не удалось получить последнюю транзакцию:", error);
-            setLastTransactionTimestamp(new Date(0).toISOString());
+            setLastTransactionTimestamp(0);
         }
     };
     fetchLastTransaction();

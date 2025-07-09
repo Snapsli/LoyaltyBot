@@ -11,7 +11,7 @@ function AdminBarManagement({ sessionToken }) {
     setMessage('');
 
     try {
-      const response = await fetch('/api/bars', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/bars`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
