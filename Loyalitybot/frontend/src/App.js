@@ -10,6 +10,8 @@ import UserManagement from './components/UserManagement';
 import PointsManagement from './components/PointsManagement';
 import LoginPage from './components/LoginPage';
 import QRScanner from './components/QRScanner';
+import BarStatistics from './components/BarStatistics';
+import UserStatistics from './components/UserStatistics';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -384,6 +386,8 @@ function App() {
             <Route path="/admin/bar/:barId" element={<AdminBarDetail user={user} />} />
             <Route path="/admin/users" element={<UserManagement user={user} />} />
             <Route path="/admin/points" element={<PointsManagement user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+            <Route path="/admin/stats/bars" element={<BarStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
+            <Route path="/admin/stats/users" element={<UserStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -900,8 +904,8 @@ function AdminPage({ user, onLogout, onToggleRole }) {
             {expandedSection === 'stats' && (
               <ul className="accordion-content">
                 <li>Общая статистика</li>
-                <li>По барам</li>
-                <li>По пользователям</li>
+                <li onClick={() => navigate('/admin/stats/bars')} style={{ cursor: 'pointer' }}>По барам</li>
+                <li onClick={() => navigate('/admin/stats/users')} style={{ cursor: 'pointer' }}>По пользователям</li>
               </ul>
             )}
           </div>

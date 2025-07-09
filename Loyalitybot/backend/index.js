@@ -1384,6 +1384,455 @@ app.get('/api/transactions/latest', requireAuth, async (req, res) => {
     }
 });
 
+// Get transaction history for user and specific bar
+app.get('/api/transactions/history/:barId', requireAuth, async (req, res) => {
+    try {
+        const { barId } = req.params;
+        const { type, page = 1, limit = 20 } = req.query;
+
+        // Validate barId
+        if (!barId || !['1', '2', '3', '4'].includes(barId)) {
+            return res.status(400).json({ error: 'Valid barId (1-4) is required' });
+        }
+
+        // Build query filter
+        const filter = {
+            userId: req.user._id,
+            barId: barId
+        };
+
+        // Add type filter if specified
+        if (type && ['earn', 'spend'].includes(type)) {
+            filter.type = type;
+        }
+
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Get transactions with pagination
+        const transactions = await Transaction.find(filter)
+            .sort({ timestamp: -1 }) // Newest first
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        // Get total count for pagination info
+        const totalCount = await Transaction.countDocuments(filter);
+        const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+        // Get bar name for display
+        const barNames = {
+            '1': 'Культура',
+            '2': 'Caballitos Mexican Bar', 
+            '3': 'Fonoteca - Listening Bar',
+            '4': 'Tchaikovsky'
+        };
+
+        res.status(200).json({
+            transactions,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalCount,
+                hasMore: parseInt(page) < totalPages
+            },
+            barInfo: {
+                barId,
+                barName: barNames[barId]
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching transaction history:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get bar statistics for admin
+app.get('/api/admin/stats/bar/:barId', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { barId } = req.params;
+        const { startDate, endDate, type } = req.query;
+
+        // Validate barId
+        if (!barId || !['1', '2', '3', '4'].includes(barId)) {
+            return res.status(400).json({ error: 'Valid barId (1-4) is required' });
+        }
+
+        // Build date filter
+        const dateFilter = {};
+        if (startDate) {
+            dateFilter.$gte = new Date(startDate);
+        }
+        if (endDate) {
+            dateFilter.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
+        }
+
+        // Build base query filter
+        const baseFilter = { barId: barId };
+        if (Object.keys(dateFilter).length > 0) {
+            baseFilter.timestamp = dateFilter;
+        }
+
+        // Get earnings and spendings statistics
+        const earnFilter = { ...baseFilter, type: 'earn' };
+        const spendFilter = { ...baseFilter, type: 'spend' };
+
+        // Apply type filter if specified
+        let finalFilter = baseFilter;
+        if (type === 'earn') {
+            finalFilter = earnFilter;
+        } else if (type === 'spend') {
+            finalFilter = spendFilter;
+        }
+
+        // Get transactions for the filtered period
+        const transactions = await Transaction.find(finalFilter).sort({ timestamp: -1 });
+
+        // Calculate basic statistics
+        const earnTransactions = await Transaction.find(earnFilter);
+        const spendTransactions = await Transaction.find(spendFilter);
+
+        const earnCount = earnTransactions.length;
+        const spendCount = spendTransactions.length;
+        const totalEarnPoints = earnTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+        const totalSpendPoints = spendTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+
+        // Calculate most popular items (for spend transactions only)
+        const itemStats = {};
+        spendTransactions.forEach(transaction => {
+            // Extract item name from description
+            const itemMatch = transaction.description.match(/за (.+)$/);
+            if (itemMatch) {
+                const itemName = itemMatch[1];
+                if (!itemStats[itemName]) {
+                    itemStats[itemName] = {
+                        name: itemName,
+                        count: 0,
+                        totalPoints: 0
+                    };
+                }
+                itemStats[itemName].count++;
+                itemStats[itemName].totalPoints += Math.abs(transaction.points);
+            }
+        });
+
+        // Sort items by popularity (count)
+        const popularItems = Object.values(itemStats)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10); // Top 10 most popular items
+
+        // Calculate daily statistics for charts
+        const dailyStats = {};
+        transactions.forEach(transaction => {
+            const date = transaction.timestamp.toISOString().split('T')[0];
+            if (!dailyStats[date]) {
+                dailyStats[date] = {
+                    date,
+                    earnCount: 0,
+                    spendCount: 0,
+                    earnPoints: 0,
+                    spendPoints: 0
+                };
+            }
+            
+            if (transaction.type === 'earn') {
+                dailyStats[date].earnCount++;
+                dailyStats[date].earnPoints += Math.abs(transaction.points);
+            } else {
+                dailyStats[date].spendCount++;
+                dailyStats[date].spendPoints += Math.abs(transaction.points);
+            }
+        });
+
+        const dailyStatsArray = Object.values(dailyStats)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Get bar name
+        const barNames = {
+            '1': 'Культура',
+            '2': 'Caballitos Mexican Bar', 
+            '3': 'Fonoteca - Listening Bar',
+            '4': 'Tchaikovsky'
+        };
+
+        // Get unique users count
+        const uniqueUsers = new Set();
+        transactions.forEach(t => uniqueUsers.add(t.userId.toString()));
+
+        res.status(200).json({
+            barInfo: {
+                barId,
+                barName: barNames[barId]
+            },
+            period: {
+                startDate: startDate || null,
+                endDate: endDate || null,
+                type: type || 'all'
+            },
+            summary: {
+                totalTransactions: transactions.length,
+                earnCount,
+                spendCount,
+                totalEarnPoints,
+                totalSpendPoints,
+                netPoints: totalEarnPoints - totalSpendPoints,
+                uniqueUsersCount: uniqueUsers.size
+            },
+            popularItems,
+            dailyStats: dailyStatsArray,
+            recentTransactions: transactions.slice(0, 20) // Last 20 transactions
+        });
+    } catch (error) {
+        console.error('Error fetching bar statistics:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get user statistics for admin
+app.get('/api/admin/stats/users', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { startDate, endDate, barId, search, sortBy = 'totalPoints', sortOrder = 'desc', page = 1, limit = 20 } = req.query;
+
+        // Build date filter for user registration
+        const userDateFilter = {};
+        if (startDate) {
+            userDateFilter.createdAt = { $gte: new Date(startDate) };
+        }
+        if (endDate) {
+            userDateFilter.createdAt = { 
+                ...userDateFilter.createdAt, 
+                $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) 
+            };
+        }
+
+        // Build transaction date filter
+        const transactionDateFilter = {};
+        if (startDate) {
+            transactionDateFilter.timestamp = { $gte: new Date(startDate) };
+        }
+        if (endDate) {
+            transactionDateFilter.timestamp = { 
+                ...transactionDateFilter.timestamp, 
+                $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) 
+            };
+        }
+
+        // Build search filter
+        const searchFilter = {};
+        if (search) {
+            searchFilter.$or = [
+                { first_name: { $regex: search, $options: 'i' } },
+                { last_name: { $regex: search, $options: 'i' } },
+                { username: { $regex: search, $options: 'i' } },
+                { phone_number: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Get all users with applied filters
+        const allUsers = await User.find({ ...userDateFilter, ...searchFilter });
+        
+        // Get all transactions with date filter
+        const allTransactions = await Transaction.find(transactionDateFilter);
+
+        // Calculate user statistics
+        const userStats = await Promise.all(allUsers.map(async (user) => {
+            // Get user transactions
+            let userTransactions = allTransactions.filter(t => t.userId.toString() === user._id.toString());
+            
+            // Filter by bar if specified
+            if (barId && ['1', '2', '3', '4'].includes(barId)) {
+                userTransactions = userTransactions.filter(t => t.barId === barId);
+            }
+
+            const earnTransactions = userTransactions.filter(t => t.type === 'earn');
+            const spendTransactions = userTransactions.filter(t => t.type === 'spend');
+            
+            const totalEarnPoints = earnTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+            const totalSpendPoints = spendTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+            
+            // Calculate total current points from barPoints (handle both Map and Object)
+            let currentPoints = 0;
+            if (user.barPoints) {
+                if (user.barPoints instanceof Map) {
+                    // Handle Map object (MongoDB)
+                    for (let points of user.barPoints.values()) {
+                        currentPoints += points || 0;
+                    }
+                } else if (typeof user.barPoints === 'object') {
+                    // Handle regular object
+                    currentPoints = Object.values(user.barPoints).reduce((sum, points) => sum + (points || 0), 0);
+                }
+            }
+            
+            // Calculate activity score (transactions in last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const recentTransactions = userTransactions.filter(t => t.timestamp >= thirtyDaysAgo);
+            
+            // Calculate bar distribution
+            const barDistribution = {};
+            userTransactions.forEach(t => {
+                if (!barDistribution[t.barId]) {
+                    barDistribution[t.barId] = 0;
+                }
+                barDistribution[t.barId]++;
+            });
+
+            // Find most active bar
+            const mostActiveBar = Object.entries(barDistribution)
+                .sort((a, b) => b[1] - a[1])[0];
+
+            // Create clean user object without mongoose methods
+            const cleanUser = {
+                _id: user._id.toString(),
+                first_name: String(user.first_name || ''),
+                last_name: String(user.last_name || ''),
+                username: String(user.username || ''),
+                phone_number: String(user.phone_number || ''),
+                role: String(user.role || 'user'),
+                isActive: Boolean(user.isActive !== false),
+                createdAt: user.createdAt,
+                currentPoints: Number(currentPoints) || 0,
+                totalEarnPoints: Number(totalEarnPoints) || 0,
+                totalSpendPoints: Number(totalSpendPoints) || 0,
+                totalTransactions: Number(userTransactions.length) || 0,
+                earnTransactions: Number(earnTransactions.length) || 0,
+                spendTransactions: Number(spendTransactions.length) || 0,
+                recentActivity: Number(recentTransactions.length) || 0,
+                lastActivity: userTransactions.length > 0 ? userTransactions[userTransactions.length - 1].timestamp : null,
+                barDistribution: barDistribution || {},
+                mostActiveBar: mostActiveBar ? {
+                    barId: String(mostActiveBar[0]),
+                    barName: String({
+                        '1': 'Культура',
+                        '2': 'Caballitos Mexican Bar',
+                        '3': 'Fonoteca - Listening Bar',
+                        '4': 'Tchaikovsky'
+                    }[mostActiveBar[0]] || ''),
+                    transactionCount: Number(mostActiveBar[1]) || 0
+                } : null
+            };
+            
+            return cleanUser;
+        }));
+
+        // Sort users
+        const sortField = {
+            'totalPoints': 'currentPoints',
+            'activity': 'totalTransactions',
+            'recent': 'recentActivity',
+            'earned': 'totalEarnPoints',
+            'spent': 'totalSpendPoints',
+            'created': 'createdAt'
+        }[sortBy] || 'currentPoints';
+
+        userStats.sort((a, b) => {
+            const aVal = a[sortField];
+            const bVal = b[sortField];
+            const order = sortOrder === 'desc' ? -1 : 1;
+            
+            if (sortField === 'createdAt') {
+                return order * (new Date(bVal) - new Date(aVal));
+            }
+            return order * (bVal - aVal);
+        });
+
+        // Apply pagination
+        const startIndex = (parseInt(page) - 1) * parseInt(limit);
+        const paginatedUsers = userStats.slice(startIndex, startIndex + parseInt(limit));
+
+        // Calculate overall statistics
+        const totalUsers = allUsers.length;
+        const activeUsers = allUsers.filter(u => u.isActive).length;
+        const blockedUsers = totalUsers - activeUsers;
+        
+        // Users registered in the last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const newUsers = allUsers.filter(u => u.createdAt >= thirtyDaysAgo).length;
+
+        // Calculate registration trends (last 14 days)
+        const registrationTrends = {};
+        for (let i = 13; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            registrationTrends[dateStr] = 0;
+        }
+
+        allUsers.forEach(user => {
+            const regDate = user.createdAt.toISOString().split('T')[0];
+            if (registrationTrends.hasOwnProperty(regDate)) {
+                registrationTrends[regDate]++;
+            }
+        });
+
+        const registrationTrendsArray = Object.entries(registrationTrends)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Bar distribution
+        const barDistributionTotal = {};
+        allTransactions.forEach(t => {
+            if (!barDistributionTotal[t.barId]) {
+                barDistributionTotal[t.barId] = {
+                    barId: t.barId,
+                    barName: {
+                        '1': 'Культура',
+                        '2': 'Caballitos Mexican Bar',
+                        '3': 'Fonoteca - Listening Bar',
+                        '4': 'Tchaikovsky'
+                    }[t.barId],
+                    userCount: new Set(),
+                    transactionCount: 0
+                };
+            }
+            barDistributionTotal[t.barId].userCount.add(t.userId.toString());
+            barDistributionTotal[t.barId].transactionCount++;
+        });
+
+        // Convert Sets to counts
+        const barDistributionArray = Object.values(barDistributionTotal).map(bar => ({
+            ...bar,
+            userCount: bar.userCount.size
+        }));
+
+        // Calculate clean summary statistics
+        const totalPointsInSystem = userStats.reduce((sum, u) => sum + (Number(u.currentPoints) || 0), 0);
+        const avgPointsPerUser = totalUsers > 0 ? Math.round(totalPointsInSystem / totalUsers) : 0;
+
+        res.status(200).json({
+            summary: {
+                totalUsers: Number(totalUsers) || 0,
+                activeUsers: Number(activeUsers) || 0,
+                blockedUsers: Number(blockedUsers) || 0,
+                newUsers: Number(newUsers) || 0,
+                avgPointsPerUser: Number(avgPointsPerUser) || 0,
+                totalPointsInSystem: Number(totalPointsInSystem) || 0
+            },
+            users: paginatedUsers,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(userStats.length / parseInt(limit)),
+                totalCount: userStats.length,
+                hasMore: startIndex + parseInt(limit) < userStats.length
+            },
+            registrationTrends: registrationTrendsArray,
+            barDistribution: barDistributionArray,
+            filters: {
+                startDate: startDate || null,
+                endDate: endDate || null,
+                barId: barId || null,
+                search: search || null,
+                sortBy,
+                sortOrder
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching user statistics:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Routes ---
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);

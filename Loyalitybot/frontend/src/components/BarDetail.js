@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import MenuModal from './MenuModal';
 import QRModal from './QRModal';
 import EarnQRModal from './EarnQRModal';
+import TransactionHistory from './TransactionHistory';
 
 // Helper functions for bars and points (same as in App.js)
 const BAR_NAMES = {
@@ -27,6 +28,7 @@ const BarDetail = ({ bar, user, onBack, onRefreshUser }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showEarnQRModal, setShowEarnQRModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [barData, setBarData] = useState(null);
@@ -44,6 +46,10 @@ const BarDetail = ({ bar, user, onBack, onRefreshUser }) => {
 
   const handleEarnBonuses = () => {
     setShowEarnQRModal(true);
+  };
+
+  const handleShowHistory = () => {
+    setShowHistory(true);
   };
 
   const handleItemClick = (item) => {
@@ -203,6 +209,9 @@ const BarDetail = ({ bar, user, onBack, onRefreshUser }) => {
                   <button className="bar-earn-button" onClick={handleEarnBonuses}>
                     Копить
                   </button>
+                  <button className="bar-history-button" onClick={handleShowHistory}>
+                    📋 История
+                  </button>
                 </div>
               </div>
             </div>
@@ -238,6 +247,15 @@ const BarDetail = ({ bar, user, onBack, onRefreshUser }) => {
           barId={bar.id}
           barName={bar.name}
           onClose={handleCloseEarnQR}
+        />
+      )}
+
+      {showHistory && (
+        <TransactionHistory
+          userId={user._id || user.id}
+          barId={bar.id}
+          barName={bar.name}
+          onClose={() => setShowHistory(false)}
         />
       )}
     </div>

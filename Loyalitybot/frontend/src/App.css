@@ -1364,6 +1364,33 @@ div.main-container {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2) !important;
 }
 
+.bar-history-button {
+  background: #667eea !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  padding: 8px 0 !important;
+  border-radius: 25px !important;
+  font-family: 'Great Vibes', cursive !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 36px !important;
+  line-height: 45px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  width: 344px !important;
+  height: 53px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+.bar-history-button:hover {
+  background: #5a6fd8 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
 /* Responsive Design for Bar Detail Page */
 @media (max-width: 768px) {
   .bar-detail-page-title {
@@ -1399,7 +1426,8 @@ div.main-container {
   }
   
   .bar-spend-button,
-  .bar-earn-button {
+  .bar-earn-button,
+  .bar-history-button {
     padding: 12px 30px !important;
     font-size: 16px !important;
     width: 280px !important;
@@ -1443,7 +1471,8 @@ div.main-container {
   }
   
   .bar-spend-button,
-  .bar-earn-button {
+  .bar-earn-button,
+  .bar-history-button {
     padding: 10px 25px !important;
     font-size: 14px !important;
     width: 250px !important;
