@@ -903,7 +903,6 @@ function AdminPage({ user, onLogout, onToggleRole }) {
             </button>
             {expandedSection === 'stats' && (
               <ul className="accordion-content">
-                <li>Общая статистика</li>
                 <li onClick={() => navigate('/admin/stats/bars')} style={{ cursor: 'pointer' }}>По барам</li>
                 <li onClick={() => navigate('/admin/stats/users')} style={{ cursor: 'pointer' }}>По пользователям</li>
               </ul>

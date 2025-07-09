@@ -206,7 +206,7 @@ const UserManagement = ({ user }) => {
             </button>
             {expandedSection === 'stats' && (
               <ul className="accordion-content">
-                <li>Общая статистика</li>
+                
                 <li>По барам</li>
                 <li>По пользователям</li>
               </ul>
