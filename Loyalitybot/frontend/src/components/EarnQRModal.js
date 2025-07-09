@@ -215,69 +215,69 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
     setQrData(base64String);
   };
 
-  const emulateEarnPoints = async () => {
-    if (!purchaseAmount || isNaN(purchaseAmount) || Number(purchaseAmount) <= 0) {
-      setEarnResult({
-        success: false,
-        message: 'Введите корректную сумму покупки'
-      });
-      return;
-    }
+  // const emulateEarnPoints = async () => {
+  //   if (!purchaseAmount || isNaN(purchaseAmount) || Number(purchaseAmount) <= 0) {
+  //     setEarnResult({
+  //       success: false,
+  //       message: 'Введите корректную сумму покупки'
+  //     });
+  //     return;
+  //   }
 
-    try {
-      setIsProcessing(true);
+  //   try {
+  //     setIsProcessing(true);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/dev/emulate-earn`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-session-token': localStorage.getItem('loyalty_token')
-        },
-        body: JSON.stringify({
-          qrData: qrData,
-          purchaseAmount: Number(purchaseAmount)
-        })
-      });
+  //     const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/dev/emulate-earn`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'x-session-token': localStorage.getItem('loyalty_token')
+  //       },
+  //       body: JSON.stringify({
+  //         qrData: qrData,
+  //         purchaseAmount: Number(purchaseAmount)
+  //       })
+  //     });
 
-      const result = await response.json();
+  //     const result = await response.json();
 
-      if (response.ok) {
-        setEarnResult({
-          success: true,
-          message: result.message,
-          pointsEarned: result.transaction.pointsEarned,
-          newTotalPoints: result.newTotalPoints
-        });
+  //     if (response.ok) {
+  //       setEarnResult({
+  //         success: true,
+  //         message: result.message,
+  //         pointsEarned: result.transaction.pointsEarned,
+  //         newTotalPoints: result.newTotalPoints
+  //       });
         
-        // Обновляем данные пользователя в localStorage если есть
-        const userData = JSON.parse(localStorage.getItem('loyalty_user') || '{}');
-        if (userData.barPoints) {
-          userData.barPoints[barId.toString()] = result.newTotalPoints;
-          localStorage.setItem('loyalty_user', JSON.stringify(userData));
-        }
+  //       // Обновляем данные пользователя в localStorage если есть
+  //       const userData = JSON.parse(localStorage.getItem('loyalty_user') || '{}');
+  //       if (userData.barPoints) {
+  //         userData.barPoints[barId.toString()] = result.newTotalPoints;
+  //         localStorage.setItem('loyalty_user', JSON.stringify(userData));
+  //       }
         
-        // Закрываем модал через 3 секунды после успешного начисления
-        setTimeout(() => {
-          onClose();
-          // Перезагружаем страницу для обновления баллов
-          window.location.reload();
-        }, 3000);
-      } else {
-        setEarnResult({
-          success: false,
-          message: result.error || 'Ошибка при обработке начисления баллов'
-        });
-      }
-    } catch (error) {
-      console.error('Error emulating earn points:', error);
-      setEarnResult({
-        success: false,
-        message: 'Ошибка соединения с сервером'
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  //       // Закрываем модал через 3 секунды после успешного начисления
+  //       setTimeout(() => {
+  //         onClose();
+  //         // Перезагружаем страницу для обновления баллов
+  //         window.location.reload();
+  //       }, 3000);
+  //     } else {
+  //       setEarnResult({
+  //         success: false,
+  //         message: result.error || 'Ошибка при обработке начисления баллов'
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error('Error emulating earn points:', error);
+  //     setEarnResult({
+  //       success: false,
+  //       message: 'Ошибка соединения с сервером'
+  //     });
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
   return (
     <div className="qr-modal-overlay" onClick={onClose}>
@@ -398,7 +398,7 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
         )}
 
         {/* Отладочная панель в development */}
-        {process.env.NODE_ENV === 'development' && barSettings && (
+        {/* {process.env.NODE_ENV === 'development' && barSettings && (
           <div style={{ 
             background: '#f8f9fa', 
             border: '1px solid #dee2e6', 
@@ -413,83 +413,10 @@ const EarnQRModal = ({ userId, barId, barName, onClose }) => {
             <div>isActive: {barSettings.isActive ? 'true' : 'false'}</div>
             <div>Курс: {Math.round(1/barSettings.pointsPerRuble)} ₽ = 1 балл</div>
           </div>
-        )}
+        )} */}
 
         <div className="qr-actions">
-          {/* Кнопки для отладки в development */}
-          {process.env.NODE_ENV === 'development' && (
-            <div style={{ marginBottom: '10px' }}>
-              <button 
-                onClick={loadBarSettings}
-                disabled={loadingSettings}
-                style={{ 
-                  padding: '6px 12px', 
-                  fontSize: '12px', 
-                  marginRight: '5px',
-                  background: '#17a2b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                {loadingSettings ? 'Загрузка...' : '🔄 Обновить'}
-              </button>
-              <button 
-                onClick={async () => {
-                  try {
-                    const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/dev/points-settings-debug`);
-                    const data = await response.json();
-                    console.log('🔍 DEBUG: Server settings state:', data);
-                    alert(`Настройки сервера:\n${JSON.stringify(data.currentSettings, null, 2)}`);
-                  } catch (error) {
-                    console.error('Error fetching debug info:', error);
-                  }
-                }}
-                style={{ 
-                  padding: '6px 12px', 
-                  fontSize: '12px',
-                  background: '#ffc107',
-                  color: 'black',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔍 Debug сервер
-              </button>
-            </div>
-          )}
           
-          {/* Эмуляция только в development */}
-          {process.env.NODE_ENV === 'development' && !earnResult && !isExpired && barSettings && barSettings.isActive && (
-            <div className="earn-emulation">
-              <h4 style={{ marginBottom: '10px', fontSize: '14px' }}>Тестирование (только для разработки):</h4>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-                <input
-                  type="number"
-                  placeholder="Сумма покупки (₽)"
-                  value={purchaseAmount}
-                  onChange={(e) => setPurchaseAmount(e.target.value)}
-                  style={{
-                    padding: '8px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    width: '150px'
-                  }}
-                />
-                <button
-                  className="emulate-purchase-btn"
-                  onClick={emulateEarnPoints}
-                  disabled={isProcessing}
-                  style={{ padding: '8px 16px', fontSize: '14px' }}
-                >
-                  {isProcessing ? 'Обработка...' : 'Начислить баллы'}
-                </button>
-              </div>
-            </div>
-          )}
           
           <button 
             className="qr-cancel-btn"

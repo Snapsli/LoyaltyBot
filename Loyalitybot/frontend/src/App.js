@@ -236,7 +236,7 @@ function App() {
       setShowLoginPage(false);
       setError(null);
       
-      // Перенаправляем администратора в админ панель
+      // Всегда редиректим на /admin после классического логина
       setInitialRoute('/admin');
       
     } catch (err) {
@@ -261,7 +261,7 @@ function App() {
         throw new Error('Telegram WebApp не доступен');
       }
       
-      // Перенаправляем пользователей Telegram на главную страницу
+      // Всегда редиректим на / после Telegram
       setInitialRoute('/');
       
     } catch (err) {
@@ -318,15 +318,15 @@ function App() {
   };
 
   // Development helper: toggle role between user and admin
-  const toggleRole = () => {
-    if (process.env.NODE_ENV !== 'development') return;
+  // const toggleRole = () => {
+  //   if (process.env.NODE_ENV !== 'development') return;
     
-    const newRole = user.role === 'admin' ? 'user' : 'admin';
-    const updatedUser = { ...user, role: newRole };
+  //   const newRole = user.role === 'admin' ? 'user' : 'admin';
+  //   const updatedUser = { ...user, role: newRole };
     
-    setUser(updatedUser);
-    localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
-  };
+  //   setUser(updatedUser);
+  //   localStorage.setItem('loyalty_user', JSON.stringify(updatedUser));
+  // };
 
   if (loading) {
     return (
@@ -368,7 +368,7 @@ function App() {
         <Route path="/" element={
           initialRoute !== '/' ? 
             <Navigate to={initialRoute} replace /> : 
-            <MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} onToggleRole={toggleRole} />
+            <MainPage user={user} onRefreshPoints={refreshPoints} onLogout={logout} />
         } />
         <Route path="/bar/:barId" element={
           user ? (
@@ -380,13 +380,13 @@ function App() {
             <Navigate to="/login" />
           )
         } />
-        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onToggleRole={toggleRole} onRefreshPoints={refreshPoints} />} />
+        <Route path="/profile" element={<ProfilePage user={user} onLogout={logout} onRefreshPoints={refreshPoints} />} />
         {user.role === 'admin' && (
           <>
-            <Route path="/admin" element={<AdminPage user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+            <Route path="/admin" element={<AdminPage user={user} onLogout={logout} />} />
             <Route path="/admin/bar/:barId" element={<AdminBarDetail user={user} />} />
             <Route path="/admin/users" element={<UserManagement user={user} />} />
-            <Route path="/admin/points" element={<PointsManagement user={user} onLogout={logout} onToggleRole={toggleRole} />} />
+            <Route path="/admin/points" element={<PointsManagement user={user} onLogout={logout} />} />
             <Route path="/admin/stats/bars" element={<BarStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
             <Route path="/admin/stats/users" element={<UserStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
             <Route path="/admin/sbis" element={<SbisPanel sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
@@ -399,7 +399,7 @@ function App() {
 }
 
 // Main Page Component (Dashboard)
-function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
+function MainPage({ user, onRefreshPoints, onLogout }) {
   const [stats, setStats] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
@@ -500,11 +500,11 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
               ⚙️ Админ
             </button>
           )}
-          {process.env.NODE_ENV === 'development' && (
+          {/* {process.env.NODE_ENV === 'development' && (
             <button onClick={onToggleRole} className="dev-role-btn">
               🔄 {user.role === 'admin' ? 'User' : 'Admin'}
             </button>
-          )}
+          )} */}
           <button onClick={onLogout} className="logout-btn">
             Выйти
           </button>
@@ -612,7 +612,7 @@ function MainPage({ user, onRefreshPoints, onLogout, onToggleRole }) {
 }
 
 // Profile Page Component (New Design)
-function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
+function ProfilePage({ user, onLogout, onRefreshPoints }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
   const [stats, setStats] = useState({ totalPoints: 0, barsWithPoints: 0 });
@@ -643,11 +643,11 @@ function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
               ⚙️ Админ
             </button>
           )}
-          {process.env.NODE_ENV === 'development' && (
+          {/* {process.env.NODE_ENV === 'development' && (
             <button onClick={onToggleRole} className="dev-role-btn">
               🔄 {user.role === 'admin' ? 'User' : 'Admin'}
             </button>
-          )}
+          )} */}
           <button onClick={onLogout} className="logout-btn">
             Выйти
           </button>
@@ -778,7 +778,7 @@ function ProfilePage({ user, onLogout, onToggleRole, onRefreshPoints }) {
 }
 
 // Admin Page Component (New Design)
-function AdminPage({ user, onLogout, onToggleRole }) {
+function AdminPage({ user, onLogout }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const [barsData, setBarsData] = useState({});
   const navigate = useNavigate();
@@ -868,11 +868,11 @@ function AdminPage({ user, onLogout, onToggleRole }) {
            <button onClick={() => navigate('/profile')} className="profile-btn">
              👤 Профиль
            </button>
-           {process.env.NODE_ENV === 'development' && (
-             <button onClick={onToggleRole} className="dev-role-btn">
-               🔄 {user.role === 'admin' ? 'User' : 'Admin'}
-             </button>
-           )}
+          {/* {process.env.NODE_ENV === 'development' && (
+            <button onClick={onToggleRole} className="dev-role-btn">
+              🔄 {user.role === 'admin' ? 'User' : 'Admin'}
+            </button>
+          )} */}
            <button onClick={onLogout} className="logout-btn">
              Выйти
            </button>
