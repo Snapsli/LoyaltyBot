@@ -3558,3 +3558,29 @@ div.main-container {
 .swal2-container {
   z-index: 1050 !important;
 }
+
+.sidebar-menu-item {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #FFFFFF;
+  padding: 15px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: 'Great Vibes', cursive;
+  font-size: 28px;
+  line-height: 35px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+.sidebar-menu-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.sidebar-menu-icon {
+  font-size: 1.2em;
+  margin-right: 10px;
+}

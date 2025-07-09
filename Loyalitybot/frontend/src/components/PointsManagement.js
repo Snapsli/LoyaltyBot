@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import QRScanner from './QRScanner';
 
 // Helper functions для баров
 const BAR_NAMES = {
@@ -16,6 +17,7 @@ const PointsManagement = ({ user, onLogout, onToggleRole }) => {
   const [saving, setSaving] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
   const navigate = useNavigate();
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     loadPointsSettings();
@@ -164,6 +166,12 @@ const PointsManagement = ({ user, onLogout, onToggleRole }) => {
               </ul>
             )}
           </div>
+          <div className="sidebar-menu-item" onClick={() => setIsScannerOpen(true)} style={{marginBottom: '10px'}}>
+            <span role="img" aria-label="scanner" className="sidebar-menu-icon">📷</span> Сканер
+          </div>
+          <div className="sidebar-menu-item" onClick={() => navigate('/admin/sbis')} style={{marginBottom: '20px'}}>
+            <span role="img" aria-label="sbis" className="sidebar-menu-icon">📊</span> СБИС
+          </div>
         </div>
 
         {/* Main Content */}
@@ -213,6 +221,9 @@ const PointsManagement = ({ user, onLogout, onToggleRole }) => {
           </div>
         </div>
       </div>
+      {isScannerOpen && (
+        <QRScanner onClose={() => setIsScannerOpen(false)} />
+      )}
     </div>
   );
 };

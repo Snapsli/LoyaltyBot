@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
+import QRScanner from './QRScanner';
 
 // Константы заведений
 const BARS = {
@@ -17,6 +18,7 @@ const UserManagement = ({ user }) => {
   const [expandedUser, setExpandedUser] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [pointsAction, setPointsAction] = useState({ userId: null, type: null, points: '', barId: null });
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -196,6 +198,16 @@ const UserManagement = ({ user }) => {
           </div>
           <h2 className="sidebar-title">Панель администратора</h2>
           
+          <div className="sidebar-menu-item" onClick={() => setIsScannerOpen(true)} style={{marginBottom: '10px'}}>
+            <span role="img" aria-label="scanner" className="sidebar-menu-icon">📷</span> Сканер
+          </div>
+          <div className="sidebar-menu-item" onClick={() => navigate('/admin/sbis')} style={{marginBottom: '20px'}}>
+            <span role="img" aria-label="sbis" className="sidebar-menu-icon">📊</span> СБИС
+          </div>
+          {isScannerOpen && (
+            <QRScanner onClose={() => setIsScannerOpen(false)} />
+          )}
+
           <div className="accordion-section">
             <button 
               className={`accordion-button ${expandedSection === 'stats' ? 'expanded' : ''}`}
