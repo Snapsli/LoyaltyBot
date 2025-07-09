@@ -585,6 +585,26 @@ div.main-container {
   transform: translateY(-1px);
 }
 
+.sbis-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 15px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sbis-btn:hover {
+  background: linear-gradient(135deg, #218838 0%, #1fa689 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
 /* Main Container Content Wrapper */
 .main-container-content {
   display: flex;
@@ -1107,7 +1127,8 @@ div.main-container {
 
   .profile-btn,
   .admin-btn,
-  .logout-btn {
+  .logout-btn,
+  .sbis-btn {
     padding: 5px 8px !important;
     font-size: 10px !important;
   }
@@ -1180,7 +1201,8 @@ div.main-container {
   
   .profile-btn,
   .admin-btn,
-  .logout-btn {
+  .logout-btn,
+  .sbis-btn {
     padding: 3px 5px !important;
     font-size: 8px !important;
   }

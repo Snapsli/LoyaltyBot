@@ -12,6 +12,7 @@ import LoginPage from './components/LoginPage';
 import QRScanner from './components/QRScanner';
 import BarStatistics from './components/BarStatistics';
 import UserStatistics from './components/UserStatistics';
+import SbisPanel from './components/SbisPanel';
 
 // Telegram WebApp SDK integration
 const tg = window.Telegram?.WebApp;
@@ -388,6 +389,7 @@ function App() {
             <Route path="/admin/points" element={<PointsManagement user={user} onLogout={logout} onToggleRole={toggleRole} />} />
             <Route path="/admin/stats/bars" element={<BarStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
             <Route path="/admin/stats/users" element={<UserStatistics sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
+            <Route path="/admin/sbis" element={<SbisPanel sessionToken={localStorage.getItem('loyalty_token')} onBack={() => window.history.back()} />} />
           </>
         )}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -847,6 +849,10 @@ function AdminPage({ user, onLogout, onToggleRole }) {
     navigate(`/admin/bar/${bar.id}`);
   };
 
+  const handleSbisClick = () => {
+    navigate('/admin/sbis');
+  };
+
   return (
     <div className="main-container">
       {/* Top Navigation */}
@@ -890,6 +896,15 @@ function AdminPage({ user, onLogout, onToggleRole }) {
               onClick={() => setIsScannerOpen(true)}
             >
               <span>📷 Сканер</span>
+            </button>
+          </div>
+
+          <div className="accordion-section">
+            <button 
+              className="accordion-button"
+              onClick={() => handleSbisClick()}
+            >
+              <span>📊 СБИС</span>
             </button>
           </div>
 

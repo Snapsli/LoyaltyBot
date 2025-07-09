@@ -1833,6 +1833,243 @@ app.get('/api/admin/stats/users', requireAuth, requireAdmin, async (req, res) =>
     }
 });
 
+// Export data for SBIS
+app.get('/api/admin/export/sbis', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { type = 'sales', startDate, endDate, barId, format = 'csv' } = req.query;
+
+        // Build date filter
+        const dateFilter = {};
+        if (startDate) {
+            dateFilter.timestamp = { $gte: new Date(startDate) };
+        }
+        if (endDate) {
+            dateFilter.timestamp = { 
+                ...dateFilter.timestamp, 
+                $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) 
+            };
+        }
+
+        // Build base filter
+        const baseFilter = { ...dateFilter };
+        if (barId && ['1', '2', '3', '4'].includes(barId)) {
+            baseFilter.barId = barId;
+        }
+
+        let exportData = [];
+        let filename = '';
+
+        switch (type) {
+            case 'sales':
+                // Sales report - transactions data
+                const transactions = await Transaction.find(baseFilter).populate('userId', 'first_name last_name phone_number');
+                
+                exportData = transactions.map(t => ({
+                    date: t.timestamp.toISOString().split('T')[0],
+                    time: t.timestamp.toTimeString().split(' ')[0],
+                    bar_id: t.barId,
+                    bar_name: {
+                        '1': 'Культура',
+                        '2': 'Caballitos Mexican Bar',
+                        '3': 'Fonoteca - Listening Bar',
+                        '4': 'Tchaikovsky'
+                    }[t.barId],
+                    transaction_type: t.type === 'earn' ? 'начисление' : 'списание',
+                    points: Math.abs(t.points),
+                    description: t.description,
+                    user_id: t.userId._id.toString(),
+                    user_name: `${t.userId.first_name} ${t.userId.last_name}`,
+                    user_phone: t.userId.phone_number || ''
+                }));
+                filename = `sbis_sales_${new Date().toISOString().split('T')[0]}`;
+                break;
+
+            case 'financial':
+                // Financial report - revenue analysis
+                const allTransactions = await Transaction.find(baseFilter);
+                const barRevenue = {};
+                
+                allTransactions.forEach(t => {
+                    if (!barRevenue[t.barId]) {
+                        barRevenue[t.barId] = {
+                            bar_id: t.barId,
+                            bar_name: {
+                                '1': 'Культура',
+                                '2': 'Caballitos Mexican Bar',
+                                '3': 'Fonoteca - Listening Bar',
+                                '4': 'Tchaikovsky'
+                            }[t.barId],
+                            total_earned: 0,
+                            total_spent: 0,
+                            transaction_count: 0,
+                            unique_users: new Set()
+                        };
+                    }
+                    
+                    if (t.type === 'earn') {
+                        barRevenue[t.barId].total_earned += Math.abs(t.points);
+                    } else {
+                        barRevenue[t.barId].total_spent += Math.abs(t.points);
+                    }
+                    
+                    barRevenue[t.barId].transaction_count++;
+                    barRevenue[t.barId].unique_users.add(t.userId.toString());
+                });
+
+                exportData = Object.values(barRevenue).map(bar => ({
+                    ...bar,
+                    unique_users: bar.unique_users.size,
+                    net_revenue: bar.total_earned - bar.total_spent,
+                    avg_transaction: bar.transaction_count > 0 ? Math.round(bar.total_spent / bar.transaction_count) : 0
+                }));
+                filename = `sbis_financial_${new Date().toISOString().split('T')[0]}`;
+                break;
+
+            case 'customers':
+                // Customer loyalty report
+                const users = await User.find({ role: 'user' });
+                const userStats = await Promise.all(users.map(async (user) => {
+                    const userTransactions = await Transaction.find({ 
+                        userId: user._id,
+                        ...baseFilter
+                    });
+
+                    const earnTransactions = userTransactions.filter(t => t.type === 'earn');
+                    const spendTransactions = userTransactions.filter(t => t.type === 'spend');
+                    
+                    const totalEarned = earnTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+                    const totalSpent = spendTransactions.reduce((sum, t) => sum + Math.abs(t.points), 0);
+                    
+                    // Calculate current points
+                    let currentPoints = 0;
+                    if (user.barPoints) {
+                        if (user.barPoints instanceof Map) {
+                            for (let points of user.barPoints.values()) {
+                                currentPoints += points || 0;
+                            }
+                        } else if (typeof user.barPoints === 'object') {
+                            currentPoints = Object.values(user.barPoints).reduce((sum, points) => sum + (points || 0), 0);
+                        }
+                    }
+
+                    return {
+                        user_id: user._id.toString(),
+                        first_name: user.first_name || '',
+                        last_name: user.last_name || '',
+                        phone: user.phone_number || '',
+                        username: user.username || '',
+                        registration_date: user.createdAt.toISOString().split('T')[0],
+                        current_points: currentPoints,
+                        total_earned: totalEarned,
+                        total_spent: totalSpent,
+                        transaction_count: userTransactions.length,
+                        last_activity: userTransactions.length > 0 ? 
+                            userTransactions[userTransactions.length - 1].timestamp.toISOString().split('T')[0] : 
+                            user.createdAt.toISOString().split('T')[0],
+                        is_active: user.isActive !== false
+                    };
+                }));
+                
+                exportData = userStats;
+                filename = `sbis_customers_${new Date().toISOString().split('T')[0]}`;
+                break;
+
+            case 'analytics':
+                // Analytics report - trends and insights
+                const analyticsTransactions = await Transaction.find(baseFilter);
+                
+                // Daily trends
+                const dailyStats = {};
+                analyticsTransactions.forEach(t => {
+                    const date = t.timestamp.toISOString().split('T')[0];
+                    if (!dailyStats[date]) {
+                        dailyStats[date] = {
+                            date,
+                            earn_count: 0,
+                            spend_count: 0,
+                            earn_points: 0,
+                            spend_points: 0,
+                            unique_users: new Set()
+                        };
+                    }
+                    
+                    if (t.type === 'earn') {
+                        dailyStats[date].earn_count++;
+                        dailyStats[date].earn_points += Math.abs(t.points);
+                    } else {
+                        dailyStats[date].spend_count++;
+                        dailyStats[date].spend_points += Math.abs(t.points);
+                    }
+                    
+                    dailyStats[date].unique_users.add(t.userId.toString());
+                });
+
+                exportData = Object.values(dailyStats).map(day => ({
+                    ...day,
+                    unique_users: day.unique_users.size,
+                    net_points: day.earn_points - day.spend_points,
+                    total_transactions: day.earn_count + day.spend_count
+                }));
+                filename = `sbis_analytics_${new Date().toISOString().split('T')[0]}`;
+                break;
+
+            default:
+                return res.status(400).json({ error: 'Invalid export type' });
+        }
+
+        // Generate file based on format
+        let fileContent = '';
+        let contentType = '';
+        let fileExtension = '';
+
+        if (format === 'csv') {
+            if (exportData.length === 0) {
+                fileContent = 'No data available';
+            } else {
+                const headers = Object.keys(exportData[0]);
+                fileContent = headers.join(',') + '\n';
+                fileContent += exportData.map(row => 
+                    headers.map(header => {
+                        const value = row[header];
+                        return typeof value === 'string' && value.includes(',') ? 
+                            `"${value}"` : value;
+                    }).join(',')
+                ).join('\n');
+            }
+            contentType = 'text/csv';
+            fileExtension = 'csv';
+        } else if (format === 'json') {
+            fileContent = JSON.stringify(exportData, null, 2);
+            contentType = 'application/json';
+            fileExtension = 'json';
+        } else if (format === 'xml') {
+            // Simple XML format
+            fileContent = '<?xml version="1.0" encoding="UTF-8"?>\n<data>\n';
+            exportData.forEach(item => {
+                fileContent += '  <item>\n';
+                Object.entries(item).forEach(([key, value]) => {
+                    fileContent += `    <${key}>${value}</${key}>\n`;
+                });
+                fileContent += '  </item>\n';
+            });
+            fileContent += '</data>';
+            contentType = 'application/xml';
+            fileExtension = 'xml';
+        }
+
+        // Set response headers for file download
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.${fileExtension}"`);
+        res.setHeader('Content-Length', Buffer.byteLength(fileContent, 'utf8'));
+        
+        res.send(fileContent);
+
+    } catch (error) {
+        console.error('Error exporting SBIS data:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Routes ---
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
